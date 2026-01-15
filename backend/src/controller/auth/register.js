@@ -31,21 +31,20 @@ const registerHelper = async (req, res, role) => {
         );
     }
 
-    // Extract registration number (accepts direct number or email format)
-    const registrationNumber = extractUsername(username);
-    if (!registrationNumber) {
+    // Basic username validation
+    if (!username || username.trim().length === 0) {
       return res
         .status(HttpStatusCode.BAD_REQUEST)
         .json(
-          new ApiError(HttpStatusCode.BAD_REQUEST, "Invalid username format. Expected: 24bcc7026 or name.24bcc7026@vitapstudent.ac.in")
+          new ApiError(HttpStatusCode.BAD_REQUEST, "Username cannot be empty")
         );
     }
 
-    // Check if user already exists in auth table
+    // Check if admin/club.admin already exists by username
     const { data: existingUser, error: userQueryError } = await supabaseServer
       .from("auth")
       .select("id, username, roles, auth_id")
-      .eq("username", registrationNumber)
+      .eq("username", username)
       .single();
 
     if (userQueryError && userQueryError.code !== "PGRST116") {
@@ -73,7 +72,7 @@ const registerHelper = async (req, res, role) => {
       const { error: updateError } = await supabaseServer
         .from("auth")
         .update({ roles: updatedRoles })
-        .eq("username", registrationNumber);
+        .eq("username", username);
 
       if (updateError) {
         console.error("Role update error:", updateError);
@@ -88,7 +87,7 @@ const registerHelper = async (req, res, role) => {
       try {
         await supabaseServer.auth.admin.updateUserById(existingUser.auth_id, {
           user_metadata: {
-            username: registrationNumber,
+            username: username,
             roles: updatedRoles
           }
         });
@@ -101,15 +100,25 @@ const registerHelper = async (req, res, role) => {
           message: `Role ${role} added successfully`,
           user: {
             id: existingUser.auth_id,
-            username: registrationNumber,
+            username: username,
             roles: updatedRoles
           }
         })
       );
     }
 
-    // User doesn't exist - create new user
-    const fullEmail = constructEmail(registrationNumber);
+    // User doesn't exist in our database - check Supabase auth
+    const fullEmail = constructEmail(username);
+    
+    // First check if this email already exists in Supabase auth
+    const { data: { users }, error: listError } = await supabaseServer.auth.admin.listUsers();
+    const existingAuthUser = users?.find(u => u.email === fullEmail);
+    
+    if (existingAuthUser) {
+      console.log("Found existing Supabase auth user, deleting:", fullEmail);
+      // Delete the existing auth user to allow re-registration
+      await supabaseServer.auth.admin.deleteUser(existingAuthUser.id);
+    }
     
     // Create new Supabase auth user
     const { data: authData, error: authError } = await supabaseServer.auth.admin.createUser({
@@ -117,7 +126,7 @@ const registerHelper = async (req, res, role) => {
       password,
       email_confirm: true, // Skip email verification
       user_metadata: { 
-        username: registrationNumber,
+        username: username,
         roles: [role]
       }
     });
@@ -138,12 +147,13 @@ const registerHelper = async (req, res, role) => {
     }
 
     // Insert user into auth table with auth_id and roles as JSONB array
+    // For admin/club.admin: store username, email is NULL
     const { error: insertError } = await supabaseServer
       .from("auth")
       .insert({
         auth_id: authData.user.id,
-        username: registrationNumber,
-        email: null, // Admin and club.admin don't need email
+        username: username,
+        email: null, // Admin and club.admin login with username
         roles: [role]
       });
 
@@ -171,7 +181,7 @@ const registerHelper = async (req, res, role) => {
         message: "Registration successful",
         user: {
           id: authData.user.id,
-          username: registrationNumber,
+          username: username,
           roles: [role]
         }
       })
@@ -228,16 +238,6 @@ export const registerMember = async (req, res) => {
         );
     }
 
-    // For members, expect full email format
-    const registrationNumber = extractUsername(username);
-    if (!registrationNumber) {
-      return res
-        .status(HttpStatusCode.BAD_REQUEST)
-        .json(
-          new ApiError(HttpStatusCode.BAD_REQUEST, "Invalid email format. Expected: name.24bcc7026@vitapstudent.ac.in")
-        );
-    }
-
     // Validate it's a VIT AP email
     if (!username.endsWith("@vitapstudent.ac.in")) {
       return res
@@ -247,11 +247,11 @@ export const registerMember = async (req, res) => {
         );
     }
 
-    // Check if user already exists in auth table
+    // Check if member already exists by email (members are separate from admins)
     const { data: existingUser, error: userQueryError } = await supabaseServer
       .from("auth")
-      .select("id, username, roles, auth_id")
-      .eq("username", registrationNumber)
+      .select("id, username, email, roles, auth_id")
+      .eq("email", username)
       .single();
 
     if (userQueryError && userQueryError.code !== "PGRST116") {
@@ -263,69 +263,35 @@ export const registerMember = async (req, res) => {
         );
     }
 
-    // Check if user exists and already has member role
+    // If member already exists with this email, return conflict
     if (existingUser) {
-      const currentRoles = existingUser.roles || [];
-      if (currentRoles.includes("member")) {
-        return res
-          .status(HttpStatusCode.CONFLICT)
-          .json(
-            new ApiError(HttpStatusCode.CONFLICT, "Username already registered as member")
-          );
-      }
+      return res
+        .status(HttpStatusCode.CONFLICT)
+        .json(
+          new ApiError(HttpStatusCode.CONFLICT, "Email already registered. Please use a different email or try logging in.")
+        );
+    }
 
-      // User exists but doesn't have this role - add the role
-      const updatedRoles = [...currentRoles, "member"];
-      const { error: updateError } = await supabaseServer
-        .from("auth")
-        .update({ 
-          roles: updatedRoles,
-          email: username // Store full email for members
-        })
-        .eq("username", registrationNumber);
-
-      if (updateError) {
-        console.error("Role update error:", updateError);
-        return res
-          .status(HttpStatusCode.INTERNAL_SERVER_ERROR)
-          .json(
-            new ApiError(HttpStatusCode.INTERNAL_SERVER_ERROR, "Failed to add member role to user")
-          );
-      }
-
-      // Update Supabase auth user metadata
-      try {
-        await supabaseServer.auth.admin.updateUserById(existingUser.auth_id, {
-          user_metadata: {
-            username: registrationNumber,
-            roles: updatedRoles
-          }
-        });
-      } catch (metadataError) {
-        console.error("Failed to update user metadata:", metadataError);
-      }
-
-      return res.status(HttpStatusCode.OK).json(
-        new ApiResponse(HttpStatusCode.OK, {
-          message: "Member role added successfully",
-          user: {
-            id: existingUser.auth_id,
-            username: registrationNumber,
-            email: username,
-            roles: updatedRoles
-          }
-        })
-      );
+    // Check if email already exists in Supabase auth but not in our database
+    const { data: { users }, error: listError } = await supabaseServer.auth.admin.listUsers();
+    const existingAuthUser = users?.find(u => u.email === username);
+    
+    if (existingAuthUser) {
+      console.log("Found existing Supabase auth user for member, deleting:", username);
+      // Delete the existing auth user to allow re-registration
+      await supabaseServer.auth.admin.deleteUser(existingAuthUser.id);
     }
 
     // User doesn't exist - create new member with email verification
-    const { data: authData, error: authError } = await supabaseServer.auth.admin.createUser({
+    // Members use signUp (requires email confirmation) instead of createUser
+    const anonClient = createAnonClient();
+    const { data: authData, error: authError } = await anonClient.auth.signUp({
       email: username, // Use full email for members
       password,
-      email_confirm: false, // Require email verification for members
-      user_metadata: { 
-        username: registrationNumber,
-        roles: ["member"]
+      options: {
+        data: { 
+          roles: ["member"]
+        }
       }
     });
 
@@ -345,11 +311,12 @@ export const registerMember = async (req, res) => {
     }
 
     // Insert user into auth table with roles as JSONB array
+    // For members: store email, username is NULL
     const { error: insertError } = await supabaseServer
       .from("auth")
       .insert({
         auth_id: authData.user.id,
-        username: registrationNumber,
+        username: null, // Members login with email, username is idle
         email: username, // Store full email for members
         roles: ["member"]
       });
@@ -378,7 +345,7 @@ export const registerMember = async (req, res) => {
         message: "Registration successful. Please check your email to verify your account before logging in.",
         user: {
           id: authData.user.id,
-          username: registrationNumber,
+          username: null, // Members don't have username stored
           email: username,
           roles: ["member"],
           emailVerified: false

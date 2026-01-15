@@ -32,23 +32,20 @@ export const isAuthenticated = async (req, res, next) => {
         );
     }
 
-    // Get username from user metadata
-    const username = user.user_metadata?.username;
-
-    if (!username) {
-      return res
-        .status(HttpStatusCode.UNAUTHORIZED)
-        .json(
-          new ApiError(HttpStatusCode.UNAUTHORIZED, "User metadata not found")
-        );
-    }
-
     // Get user data from auth table
-    const { data: userData, error: dbError } = await supabaseServer
+    // Members have email (username is NULL), Admins have username (email is NULL)
+    let userData;
+    let dbError;
+
+    // Try to find by auth_id first (most reliable)
+    const result = await supabaseServer
       .from("auth")
       .select("id, username, email, roles, auth_id")
-      .eq("username", username)
+      .eq("auth_id", user.id)
       .single();
+    
+    userData = result.data;
+    dbError = result.error;
 
     if (dbError || !userData) {
       return res
@@ -59,10 +56,11 @@ export const isAuthenticated = async (req, res, next) => {
     }
 
     // Attach user info to request object
+    // Members have email (username is NULL), Admins have username (email is NULL)
     req.user = {
       id: userData.auth_id || user.id, // Use auth_id if available, otherwise use Supabase user id
-      username: userData.username,
-      email: userData.email, // Full email (for members) or null (for admin/club.admin)
+      username: userData.username || null, // For admin/club.admin
+      email: userData.email || null, // For members
       roles: userData.roles || [], // Array of roles
       dbId: userData.id // The auto-increment id from auth table
     };

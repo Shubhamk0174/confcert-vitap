@@ -22,25 +22,15 @@ const loginHelper = async (req, res, expectedRole) => {
         );
     }
 
-    // Extract registration number (accepts direct number or email format)
-    const registrationNumber = extractUsername(username);
-    if (!registrationNumber) {
-      return res
-        .status(HttpStatusCode.BAD_REQUEST)
-        .json(
-          new ApiError(HttpStatusCode.BAD_REQUEST, "Invalid username format. Expected: 24bcc7026")
-        );
-    }
-
     // Check if user exists in auth table
     const { data: userData, error: userQueryError } = await supabaseServer
       .from("auth")
       .select("id, username, roles")
-      .eq("username", registrationNumber)
+      .eq("username", username)
       .single();
 
     if (userQueryError || !userData) {
-      console.error("User not found in auth table:", registrationNumber, userQueryError);
+      console.error("User not found in auth table:", username, userQueryError);
       return res
         .status(HttpStatusCode.UNAUTHORIZED)
         .json(
@@ -62,7 +52,7 @@ const loginHelper = async (req, res, expectedRole) => {
 
     // Sign in with Supabase auth
     const anonClient = createAnonClient();
-    const fullEmail = constructEmail(registrationNumber);
+    const fullEmail = constructEmail(username);
     console.log("Attempting Supabase auth with email:", fullEmail);
 
     const { data, error } = await anonClient.auth.signInWithPassword({
@@ -91,7 +81,7 @@ const loginHelper = async (req, res, expectedRole) => {
         message: "Login successful",
         user: {
           id: data.user.id,
-          username: registrationNumber,
+          username: username,
           roles: userData.roles,
           currentRole: expectedRole
         },
@@ -166,14 +156,15 @@ export const loginMember = async (req, res) => {
     }
 
     // Check if user exists in auth table with member role
+    // Members are stored with email (username is NULL)
     const { data: userData, error: userQueryError } = await supabaseServer
       .from("auth")
       .select("id, username, email, roles")
-      .eq("username", registrationNumber) // Query by registration number
+      .eq("email", username) // Query by full email for members
       .single();
 
     if (userQueryError || !userData) {
-      console.error("User not found in auth table:", registrationNumber, userQueryError);
+      console.error("User not found in auth table:", username, userQueryError);
       return res
         .status(HttpStatusCode.UNAUTHORIZED)
         .json(
@@ -241,7 +232,7 @@ export const loginMember = async (req, res) => {
         message: "Login successful",
         user: {
           id: data.user.id,
-          username: registrationNumber, // Return registration number
+          username: null, // Members don't have username stored
           email: username, // Return full email
           roles: userData.roles,
           currentRole: "member",
