@@ -1,6 +1,10 @@
 import express from "express";
-import { registerAdmin, registerClubAdmin, registerMember } from "../controller/auth/register.js";
-import { loginAdmin, loginClubAdmin, loginMember } from "../controller/auth/login.js";
+import { registerAdmin } from "../controller/auth/registerAdmin.js";
+import { registerClubAdmin } from "../controller/auth/registerClubAdmin.js";
+import { registerMember } from "../controller/auth/registerMember.js";
+import { loginAdmin } from "../controller/auth/loginAdmin.js";
+import { loginClubAdmin } from "../controller/auth/loginClubAdmin.js";
+import { loginMember } from "../controller/auth/loginMember.js";
 import { getUserData } from "../controller/auth/user.js";
 // The below auth middleware are kept to be used later
 import { isAuthenticated, isAdmin, isClubAdmin, isMember, isAdminOrClubAdmin } from "../middleware/auth/index.js";
