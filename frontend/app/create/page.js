@@ -43,6 +43,7 @@ import NextImage from "next/image";
 import localforage from 'localforage';
 import * as XLSX from 'xlsx';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '../../lib/canvas-constants';
+import axiosClient from '../../lib/axiosClient';
 
 export default function CreateCertificate() {
   const { user } = useAuth();
@@ -507,19 +508,18 @@ export default function CreateCertificate() {
       const formDataUpload = new FormData();
       formDataUpload.append('file', fileToUpload);
 
-      const response = await fetch('/api/upload-to-ipfs', {
-        method: 'POST',
-        body: formDataUpload,
+      const response = await axiosClient.post('/api/certificate/upload-to-ipfs', formDataUpload, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
       });
 
-      const result = await response.json();
-
-      if (response.ok) {
-        setIpfsHash(result.ipfsHash);
+      if (response.data.data?.ipfsHash) {
+        setIpfsHash(response.data.data.ipfsHash);
         setSuccess(true);
         setTimeout(() => setSuccess(false), 3000);
       } else {
-        setError(result.error);
+        setError(response.data.message || 'Upload failed');
       }
     } catch (err) {
       setError("Failed to upload to IPFS: " + err.message);
@@ -578,18 +578,17 @@ export default function CreateCertificate() {
         const formDataUpload = new FormData();
         formDataUpload.append('file', fileToUpload);
 
-        const response = await fetch('/api/upload-to-ipfs', {
-          method: 'POST',
-          body: formDataUpload,
+        const response = await axiosClient.post('/api/certificate/upload-to-ipfs', formDataUpload, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
         });
 
-        const uploadResult = await response.json();
-
-        if (response.ok) {
-          currentIpfsHash = uploadResult.ipfsHash;
-          setIpfsHash(uploadResult.ipfsHash);
+        if (response.data.data?.ipfsHash) {
+          currentIpfsHash = response.data.data.ipfsHash;
+          setIpfsHash(response.data.data.ipfsHash);
         } else {
-          throw new Error(uploadResult.error || "Failed to upload to IPFS");
+          throw new Error(response.error || "Failed to upload to IPFS");
         }
         
         setUploadingToIPFS(false);
@@ -607,23 +606,16 @@ export default function CreateCertificate() {
         // Send email if enabled
         if (sendEmail && formData.email) {
           try {
-            const emailResponse = await fetch('/api/send-certificate-email', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                to: formData.email,
-                studentName: formData.studentName,
-                certificateId: result.certificateId,
-                ipfsHash: currentIpfsHash,
-                issuerAddress: walletAddress,
-                transactionHash: result.transactionHash,
-              }),
+            const emailResponse = await axiosClient.post('/api/certificate/send-certificate-email', {
+              to: formData.email,
+              studentName: formData.studentName,
+              certificateId: result.certificateId,
+              ipfsHash: currentIpfsHash,
+              issuerAddress: walletAddress,
+              transactionHash: result.transactionHash,
             });
-            const emailResult = await emailResponse.json();
-            if (!emailResult.success) {
-              console.error('Failed to send email:', emailResult.error);
+            if (!emailResponse.data.success) {
+              console.error('Failed to send email:', emailResponse.data.message);
             }
           } catch (emailError) {
             console.error('Failed to send email:', emailError);
@@ -826,18 +818,17 @@ export default function CreateCertificate() {
         const formDataUpload = new FormData();
         formDataUpload.append('file', certificates[i].blob);
 
-        const response = await fetch('/api/upload-to-ipfs', {
-          method: 'POST',
-          body: formDataUpload,
+        const response = await axiosClient.post('/api/certificate/upload-to-ipfs', formDataUpload, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
         });
 
-        const uploadResult = await response.json();
-
-        if (!response.ok) {
-          throw new Error(`Failed to upload certificate ${i + 1} to IPFS: ${uploadResult.error}`);
+        if (!response.data.data?.ipfsHash) {
+          throw new Error(`Failed to upload certificate ${i + 1} to IPFS: ${response.data.message || 'Upload failed'}`);
         }
 
-        ipfsHashes.push(uploadResult.ipfsHash);
+        ipfsHashes.push(response.data.data.ipfsHash);
       }
 
       // Step 3: Issue all certificates in one blockchain transaction
@@ -868,17 +859,13 @@ export default function CreateCertificate() {
           for (let i = 0; i < results.length; i++) {
             if (results[i].email) {
               try {
-                await fetch('/api/send-certificate-email', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    to: results[i].email,
-                    studentName: results[i].name,
-                    certificateId: results[i].certificateId,
-                    ipfsHash: results[i].ipfsHash,
-                    issuerAddress: walletAddress,
-                    transactionHash: result.transactionHash,
-                  }),
+                await axiosClient.post('/api/certificate/send-certificate-email', {
+                  to: results[i].email,
+                  studentName: results[i].name,
+                  certificateId: results[i].certificateId,
+                  ipfsHash: results[i].ipfsHash,
+                  issuerAddress: walletAddress,
+                  transactionHash: result.transactionHash,
                 });
               } catch (emailError) {
                 console.error(`Failed to send email to ${results[i].email}:`, emailError);
