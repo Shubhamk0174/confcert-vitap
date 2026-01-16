@@ -4,28 +4,14 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, Shield, Wallet, LogOut, Sun, Moon } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
+import { Menu, X, Shield, Sun, Moon } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
-  const { walletAddress, loading, signInWithEthereum, signOut } = useAuth();
   const { theme, setTheme } = useTheme();
-
-  const handleWalletConnect = async () => {
-    try {
-      const { error } = await signInWithEthereum();
-      if (error) {
-        alert(error.message || 'Failed to connect with Ethereum wallet');
-      }
-    } catch (error) {
-      console.error('Connection error:', error);
-      alert('Failed to connect wallet. Please try again.');
-    }
-  };
 
   const toggleTheme = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark');
@@ -33,16 +19,11 @@ export default function Navbar() {
 
   const navItems = [
     { name: 'Home', href: '/' },
-    { name: 'Verify', href: '/verify' },
-  ];
-
-  const authenticatedItems = [
     { name: 'Create', href: '/create' },
-    { name: 'Issued History', href: '/my-certificates' },
+    { name: 'Verify', href: '/verify' },
     { name: 'Templates', href: '/edit-template' },
+    { name: 'About', href: '/about' },
   ];
-
-  const aboutItem = { name: 'About', href: '/about' };
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
@@ -67,20 +48,6 @@ export default function Navbar() {
                 </Button>
               </Link>
             ))}
-            
-            {walletAddress && authenticatedItems.map((item) => (
-              <Link key={item.name} href={item.href}>
-                <Button variant="ghost" className="font-medium">
-                  {item.name}
-                </Button>
-              </Link>
-            ))}
-
-            <Link href={aboutItem.href}>
-              <Button variant="ghost" className="font-medium">
-                {aboutItem.name}
-              </Button>
-            </Link>
 
             <a
               href="https://github.com/Shubhamk0174/confcert-blockchain"
@@ -98,34 +65,8 @@ export default function Navbar() {
             </a>
           </div>
 
-          {/* Connect Wallet / User Menu */}
+          {/* Theme Toggle */}
           <div className="hidden md:flex items-center gap-2">
-            {loading ? (
-              <div className="text-sm text-muted-foreground">Loading...</div>
-            ) : walletAddress ? (
-              <>
-                <Badge variant="secondary" className="font-mono text-xs px-2 py-1">
-                  <Wallet className="h-3 w-3 mr-1" />
-                  {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
-                </Badge>
-                <Button
-                  onClick={signOut}
-                  variant="outline"
-                  size="sm"
-                  className="gap-2 mr-10"
-                >
-                  <LogOut className="h-4 w-4 " />
-                </Button>
-              </>
-            ) : (
-              <Button
-                onClick={handleWalletConnect}
-                className="gap-2"
-              >
-                <Wallet className="h-4 w-4" />
-                Connect Wallet
-              </Button>
-            )}
             <Button
               onClick={toggleTheme}
               variant="ghost"
@@ -136,7 +77,6 @@ export default function Navbar() {
               <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
               <span className="sr-only">Toggle theme</span>
             </Button>
-            
           </div>
 
           {/* Mobile menu button */}
@@ -171,20 +111,6 @@ export default function Navbar() {
                   </Button>
                 </Link>
               ))}
-              
-              {walletAddress && authenticatedItems.map((item) => (
-                <Link key={item.name} href={item.href} onClick={() => setIsOpen(false)}>
-                  <Button variant="ghost" className="w-full justify-start">
-                    {item.name}
-                  </Button>
-                </Link>
-              ))}
-
-              <Link href={aboutItem.href} onClick={() => setIsOpen(false)}>
-                <Button variant="ghost" className="w-full justify-start">
-                  {aboutItem.name}
-                </Button>
-              </Link>
 
               <div className="pt-2 border-t">
                 <Button
@@ -211,36 +137,6 @@ export default function Navbar() {
                   />
                   <span>GitHub</span>
                 </a>
-                {walletAddress ? (
-                  <>
-                    <Badge variant="secondary" className="w-full justify-start font-mono mb-2">
-                      <Wallet className="h-3 w-3 mr-2" />
-                      {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
-                    </Badge>
-                    <Button
-                      onClick={() => {
-                        signOut();
-                        setIsOpen(false);
-                      }}
-                      variant="outline"
-                      className="w-full"
-                    >
-                      <LogOut className="h-4 w-4 mr-2" />
-                      Disconnect
-                    </Button>
-                  </>
-                ) : (
-                  <Button
-                    onClick={() => {
-                      handleWalletConnect();
-                      setIsOpen(false);
-                    }}
-                    className="w-full"
-                  >
-                    <Wallet className="h-4 w-4 mr-2" />
-                    Connect Wallet
-                  </Button>
-                )}
               </div>
             </div>
           </motion.div>

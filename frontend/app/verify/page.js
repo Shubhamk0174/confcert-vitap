@@ -9,8 +9,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Input } from '../../components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from '../../components/ui/alert';
 import { Badge } from '../../components/ui/badge';
-import { getCertificate, connectWallet, formatTimestamp, getAddressLink } from '../../lib/web3';
-import { getIPFSUrl } from '../../lib/ipfs';
+import { getCertificate, formatTimestamp, getAddressLink } from '../../lib/web3';
+import { getIPFSUrl, getAllIPFSUrls } from '../../lib/ipfs';
 import Image from 'next/image';
 
 function VerifyContent() {
@@ -19,6 +19,8 @@ function VerifyContent() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
   const [imageLoading, setImageLoading] = useState(false);
+  const [currentGatewayIndex, setCurrentGatewayIndex] = useState(0);
+  const [imageError, setImageError] = useState(false);
   const searchParams = useSearchParams();
 
   const handleVerify = useCallback(async (certId = certificateId) => {
@@ -32,12 +34,11 @@ function VerifyContent() {
     setLoading(true);
     setResult(null);
     setError('');
+    setCurrentGatewayIndex(0); // Reset to first gateway
+    setImageError(false); // Reset image error state
 
     try {
-      // Ensure wallet is connected (for read-only operations, MetaMask needs to be available)
-      await connectWallet();
-      
-      // Fetch certificate from blockchain
+      // Fetch certificate from blockchain (read-only, no wallet needed)
       const response = await getCertificate(parseInt(idToVerify));
       
       if (response.success) {
@@ -54,7 +55,7 @@ function VerifyContent() {
       }
     } catch (err) {
       console.error('Verification error:', err);
-      setError(err.message || 'Failed to verify certificate. Make sure MetaMask is connected.');
+      setError(err.message || 'Failed to verify certificate. Please check your connection.');
       setResult({ valid: false });
     } finally {
       setLoading(false);
@@ -91,6 +92,30 @@ function VerifyContent() {
     setResult(null);
     setError('');
     setImageLoading(false);
+    setCurrentGatewayIndex(0);
+    setImageError(false);
+  };
+
+  const handleImageError = () => {
+    console.log(`❌ Image failed to load from gateway ${currentGatewayIndex}`);
+    
+    // Try next gateway
+    const maxGateways = 6; // We have 6 gateways
+    if (currentGatewayIndex < maxGateways - 1) {
+      console.log(`🔄 Trying next gateway (${currentGatewayIndex + 1})`);
+      setCurrentGatewayIndex(prev => prev + 1);
+      setImageLoading(true);
+    } else {
+      console.log('❌ All gateways exhausted');
+      setImageLoading(false);
+      setImageError(true);
+    }
+  };
+
+  const handleImageLoad = () => {
+    console.log(`✅ Image loaded successfully from gateway ${currentGatewayIndex}`);
+    setImageLoading(false);
+    setImageError(false);
   };
 
   return (
@@ -273,46 +298,42 @@ function VerifyContent() {
                               </div>
                             </div>
                           )}
-                          <Image
-                            fill
-                            src={getIPFSUrl(result.certificate.ipfsHash)}
-                            alt="Certificate"
-                            className="object-contain rounded-lg shadow-sm"
-                            onError={(e) => {
-                              const target = e.target;
-                              const fallback = target.parentElement?.querySelector('.fallback');
-                              if (target && fallback) {
-                                target.style.display = 'none';
-                                fallback.style.display = 'flex';
-                              }
-                              setImageLoading(false);
-                            }}
-                            onLoad={(e) => {
-                              const target = e.target;
-                              const fallback = target.parentElement?.querySelector('.fallback');
-                              if (fallback) {
-                                fallback.style.display = 'none';
-                              }
-                              setImageLoading(false);
-                            }}
-                            onLoadingComplete={() => setImageLoading(false)}
-                          />
-                          <div className="fallback hidden flex-col items-center gap-3 text-muted-foreground">
-                            <FileText className="h-12 w-12" />
-                            <div className="text-center">
-                              <p className="text-sm font-medium">Certificate preview unavailable</p>
-                              <p className="text-xs">The image may still be loading or unavailable</p>
+                          
+                          {!imageError ? (
+                            <Image
+                              key={currentGatewayIndex}
+                              fill
+                              src={getIPFSUrl(result.certificate.ipfsHash, currentGatewayIndex)}
+                              alt="Certificate"
+                              className="object-contain rounded-lg shadow-sm"
+                              unoptimized
+                              onError={handleImageError}
+                              onLoad={handleImageLoad}
+                            />
+                          ) : (
+                            <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                              <FileText className="h-12 w-12" />
+                              <div className="text-center">
+                                <p className="text-sm font-medium">Certificate preview unavailable</p>
+                                <p className="text-xs">All IPFS gateways are currently rate-limited</p>
+                                <p className="text-xs text-primary mt-2">Try one of these alternative gateways:</p>
+                              </div>
+                              <div className="flex flex-wrap gap-2 justify-center mt-2">
+                                {getAllIPFSUrls(result.certificate.ipfsHash).slice(0, 3).map((url, idx) => (
+                                  <a
+                                    key={idx}
+                                    href={url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 px-3 py-1 text-xs bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+                                  >
+                                    <ExternalLink className="h-3 w-3" />
+                                    Gateway {idx + 1}
+                                  </a>
+                                ))}
+                              </div>
                             </div>
-                            <a
-                              href={getIPFSUrl(result.certificate.ipfsHash)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 px-3 py-1 text-xs bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
-                            >
-                              <ExternalLink className="h-3 w-3" />
-                              View on IPFS
-                            </a>
-                          </div>
+                          )}
                         </div>
                       </div>
                     </CardContent>

@@ -1,174 +1,13 @@
 /**
- * Web3 Utility Functions
- * Handles blockchain interactions with the CertificateRegistry smart contract on Sepolia
+ * Web3 Utility Functions (Read-Only)
+ * This file now only handles read-only operations for certificate verification
+ * All write operations (issuing certificates) are handled by the backend
  */
 
 import { ethers } from 'ethers';
 
-// Contract ABI - This will be generated after deploying the smart contract
-// You'll need to update this after deployment
+// Contract ABI - Only read functions are used now
 const CONTRACT_ABI = [
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_issuer",
-        "type": "address"
-      }
-    ],
-    "name": "authorizeIssuer",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "string[]",
-        "name": "_studentNames",
-        "type": "string[]"
-      },
-      {
-        "internalType": "string[]",
-        "name": "_ipfsHashes",
-        "type": "string[]"
-      }
-    ],
-    "name": "bulkIssueCertificates",
-    "outputs": [
-      {
-        "internalType": "uint256[]",
-        "name": "",
-        "type": "uint256[]"
-      }
-    ],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "stateMutability": "nonpayable",
-    "type": "constructor"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "certificateId",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "studentName",
-        "type": "string"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "ipfsHash",
-        "type": "string"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "issuer",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "timestamp",
-        "type": "uint256"
-      }
-    ],
-    "name": "CertificateIssued",
-    "type": "event"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "string",
-        "name": "_studentName",
-        "type": "string"
-      },
-      {
-        "internalType": "string",
-        "name": "_ipfsHash",
-        "type": "string"
-      }
-    ],
-    "name": "issueCertificate",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "issuer",
-        "type": "address"
-      }
-    ],
-    "name": "IssuerAuthorized",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "issuer",
-        "type": "address"
-      }
-    ],
-    "name": "IssuerRevoked",
-    "type": "event"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_issuer",
-        "type": "address"
-      }
-    ],
-    "name": "revokeIssuer",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "name": "authorizedIssuers",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
   {
     "inputs": [
       {
@@ -260,17 +99,17 @@ const CONTRACT_ABI = [
   {
     "inputs": [
       {
-        "internalType": "address",
-        "name": "_issuer",
-        "type": "address"
+        "internalType": "uint256",
+        "name": "_certificateId",
+        "type": "uint256"
       }
     ],
-    "name": "getCertificatesByIssuer",
+    "name": "verifyCertificate",
     "outputs": [
       {
-        "internalType": "uint256[]",
+        "internalType": "bool",
         "name": "",
-        "type": "uint256[]"
+        "type": "bool"
       }
     ],
     "stateMutability": "view",
@@ -288,306 +127,113 @@ const CONTRACT_ABI = [
     ],
     "stateMutability": "view",
     "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_issuer",
-        "type": "address"
-      }
-    ],
-    "name": "isAuthorized",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "owner",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_certificateId",
-        "type": "uint256"
-      }
-    ],
-    "name": "verifyCertificate",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
   }
 ];
 
 // Contract address on Sepolia - Update this after deployment
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || '';
 
-// Sepolia network configuration
-const SEPOLIA_CHAIN_ID = '0xaa36a7'; // 11155111 in decimal
-const SEPOLIA_RPC_URL = 'https://sepolia.infura.io/v3/YOUR_INFURA_KEY'; // Or use Alchemy
+// Multiple RPC endpoints for fallback (public Sepolia RPCs)
+const SEPOLIA_RPC_URLS = ['https://ethereum-sepolia-rpc.publicnode.com',
+  'https://rpc.sepolia.org',
+  'https://eth-sepolia.public.blastapi.io',
+  'https://sepolia.gateway.tenderly.co',
+  'https://rpc2.sepolia.org',
+];
+
+let providerInstance = null;
+let currentRpcIndex = 0;
 
 /**
- * Check if MetaMask is installed
+ * Get a read-only provider (no wallet needed) with automatic fallback
  */
-export function isMetaMaskInstalled() {
-  return typeof window !== 'undefined' && typeof window.ethereum !== 'undefined';
-}
+function getReadOnlyProvider() {
+  // Try to reuse existing provider if it exists
+  if (providerInstance) {
+    return providerInstance;
+  }
 
-/**
- * Request account access from MetaMask
- */
-export async function connectWallet() {
+  // Create new provider with current RPC URL
   try {
-    if (!isMetaMaskInstalled()) {
-      throw new Error('MetaMask is not installed. Please install MetaMask to continue.');
-    }
-
-    // Request account access
-    const accounts = await window.ethereum.request({
-      method: 'eth_requestAccounts'
-    });
-
-    // Check if connected to Sepolia
-    const chainId = await window.ethereum.request({ method: 'eth_chainId' });
-    
-    if (chainId !== SEPOLIA_CHAIN_ID) {
-      await switchToSepolia();
-    }
-
-    return {
-      success: true,
-      address: accounts[0]
-    };
-
+    const rpcUrl = SEPOLIA_RPC_URLS[currentRpcIndex];
+    console.log(`🔗 Connecting to Sepolia RPC: ${rpcUrl}`);
+    providerInstance = new ethers.JsonRpcProvider(rpcUrl);
+    return providerInstance;
   } catch (error) {
-    console.error('Connect Wallet Error:', error);
-    return {
-      success: false,
-      error: error.message || 'Failed to connect wallet'
-    };
+    console.error('Failed to create provider:', error);
+    throw new Error('Unable to connect to Sepolia network');
   }
 }
 
 /**
- * Switch to Sepolia network
+ * Try next RPC endpoint if current one fails
  */
-export async function switchToSepolia() {
-  try {
-    await window.ethereum.request({
-      method: 'wallet_switchEthereumChain',
-      params: [{ chainId: SEPOLIA_CHAIN_ID }],
-    });
-  } catch (switchError) {
-    // This error code indicates that the chain has not been added to MetaMask
-    if (switchError.code === 4902) {
-      await window.ethereum.request({
-        method: 'wallet_addEthereumChain',
-        params: [
-          {
-            chainId: SEPOLIA_CHAIN_ID,
-            chainName: 'Sepolia Test Network',
-            nativeCurrency: {
-              name: 'Sepolia ETH',
-              symbol: 'ETH',
-              decimals: 18
-            },
-            rpcUrls: ['https://sepolia.infura.io/v3/'],
-            blockExplorerUrls: ['https://sepolia.etherscan.io/']
-          },
-        ],
-      });
-    } else {
-      throw switchError;
-    }
-  }
+async function switchToNextRpc() {
+  currentRpcIndex = (currentRpcIndex + 1) % SEPOLIA_RPC_URLS.length;
+  providerInstance = null; // Clear cached provider
+  console.log(`⚠️ Switching to RPC endpoint ${currentRpcIndex + 1}/${SEPOLIA_RPC_URLS.length}`);
+  return getReadOnlyProvider();
 }
 
 /**
- * Get contract instance
+ * Get contract instance for read operations with retry logic
  */
-function getContract(signer) {
+async function getReadOnlyContract(retryCount = 0) {
   if (!CONTRACT_ADDRESS) {
-    throw new Error('Contract address not configured. Please deploy the contract and set NEXT_PUBLIC_CONTRACT_ADDRESS');
-  }
-  return new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-}
-
-/**
- * Get provider and signer
- */
-async function getProviderAndSigner() {
-  if (!isMetaMaskInstalled()) {
-    throw new Error('MetaMask is not installed');
+    throw new Error('Contract address not configured. Please set NEXT_PUBLIC_CONTRACT_ADDRESS in .env.local');
   }
 
-  // Ensure we're on Sepolia network before any transaction
-  const chainId = await window.ethereum.request({ method: 'eth_chainId' });
-  if (chainId !== SEPOLIA_CHAIN_ID) {
-    await switchToSepolia();
-  }
-
-  const provider = new ethers.BrowserProvider(window.ethereum);
-  const signer = await provider.getSigner();
-  
-  return { provider, signer };
-}
-
-/**
- * Issue a new certificate on the blockchain
- * @param {string} studentName - Name of the student
- * @param {string} ipfsHash - IPFS hash of the certificate image
- * @returns {Promise<{success: boolean, certificateId?: number, transactionHash?: string, error?: string}>}
- */
-export async function issueCertificate(studentName, ipfsHash) {
   try {
-    const { signer } = await getProviderAndSigner();
-    const contract = getContract(signer);
-
-    // Call the smart contract function
-    const tx = await contract.issueCertificate(studentName, ipfsHash);
+    const provider = getReadOnlyProvider();
+    const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
     
-    console.log('Transaction sent:', tx.hash);
+    // Test the connection by getting the chain ID
+    await provider.getNetwork();
     
-    // Wait for transaction to be mined
-    const receipt = await tx.wait();
-    
-    console.log('Transaction mined:', receipt);
-
-    // Extract certificate ID from event logs
-    const event = receipt.logs.find(log => {
-      try {
-        const parsed = contract.interface.parseLog(log);
-        return parsed.name === 'CertificateIssued';
-      } catch {
-        return false;
-      }
-    });
-
-    let certificateId;
-    if (event) {
-      const parsed = contract.interface.parseLog(event);
-      certificateId = Number(parsed.args.certificateId);
-    }
-
-    return {
-      success: true,
-      certificateId,
-      transactionHash: receipt.hash,
-      blockNumber: receipt.blockNumber
-    };
-
+    return contract;
   } catch (error) {
-    console.error('Issue Certificate Error:', error);
-    return {
-      success: false,
-      error: error.message || 'Failed to issue certificate on blockchain'
-    };
+    console.error(`Connection error (attempt ${retryCount + 1}):`, error.message);
+    
+    // Try next RPC if we haven't exhausted all options
+    if (retryCount < SEPOLIA_RPC_URLS.length - 1) {
+      await switchToNextRpc();
+      return getReadOnlyContract(retryCount + 1);
+    }
+    
+    throw new Error('Failed to connect to Sepolia network. All RPC endpoints failed.');
   }
 }
 
 /**
- * Issue multiple certificates in a single transaction (bulk issuance)
- * @param {string[]} studentNames - Array of student names
- * @param {string[]} ipfsHashes - Array of IPFS hashes for each certificate
- * @returns {Promise<{success: boolean, certificateIds?: number[], transactionHash?: string, error?: string}>}
- */
-export async function bulkIssueCertificates(studentNames, ipfsHashes) {
-  try {
-    if (!studentNames || !ipfsHashes || studentNames.length !== ipfsHashes.length) {
-      throw new Error('Invalid input: studentNames and ipfsHashes must be arrays of equal length');
-    }
-
-    if (studentNames.length === 0) {
-      throw new Error('Must provide at least one certificate to issue');
-    }
-
-    if (studentNames.length > 100) {
-      throw new Error('Cannot issue more than 100 certificates at once');
-    }
-
-    const { signer } = await getProviderAndSigner();
-    const contract = getContract(signer);
-
-    // Call the smart contract function
-    console.log(`Issuing ${studentNames.length} certificates in bulk...`);
-    const tx = await contract.bulkIssueCertificates(studentNames, ipfsHashes);
-    
-    console.log('Bulk transaction sent:', tx.hash);
-    
-    // Wait for transaction to be mined
-    const receipt = await tx.wait();
-    
-    console.log('Bulk transaction mined:', receipt);
-
-    // Extract all certificate IDs from event logs
-    const certificateIds = [];
-    receipt.logs.forEach(log => {
-      try {
-        const parsed = contract.interface.parseLog(log);
-        if (parsed.name === 'CertificateIssued') {
-          certificateIds.push(Number(parsed.args.certificateId));
-        }
-      } catch {
-        // Skip logs that can't be parsed
-      }
-    });
-
-    return {
-      success: true,
-      certificateIds,
-      transactionHash: receipt.hash,
-      blockNumber: receipt.blockNumber,
-      count: certificateIds.length
-    };
-
-  } catch (error) {
-    console.error('Bulk Issue Certificates Error:', error);
-    return {
-      success: false,
-      error: error.message || 'Failed to issue certificates in bulk on blockchain'
-    };
-  }
-}
-
-/**
- * Get certificate details from blockchain
+ * Get certificate details from blockchain (read-only)
  * @param {number} certificateId - The certificate ID to look up
  * @returns {Promise<{success: boolean, certificate?: object, error?: string}>}
  */
 export async function getCertificate(certificateId) {
   try {
-    const { provider } = await getProviderAndSigner();
-    const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+    console.log(`📋 Fetching certificate ID: ${certificateId}`);
+    
+    if (!certificateId || isNaN(certificateId)) {
+      return {
+        success: false,
+        error: 'Invalid certificate ID'
+      };
+    }
 
+    const contract = await getReadOnlyContract();
+    console.log('✅ Contract instance created');
+    
     const result = await contract.getCertificate(certificateId);
+    console.log('✅ Certificate data received:', {
+      id: Number(result.id),
+      exists: result.exists,
+      studentName: result.studentName
+    });
 
     if (!result.exists) {
       return {
         success: false,
-        error: 'Certificate not found'
+        error: 'Certificate not found on blockchain'
       };
     }
 
@@ -604,25 +250,39 @@ export async function getCertificate(certificateId) {
     };
 
   } catch (error) {
-    console.error('Get Certificate Error:', error);
+    console.error('❌ Get Certificate Error:', error);
+    
+    // Provide user-friendly error messages
+    let errorMessage = 'Failed to retrieve certificate from blockchain';
+    
+    if (error.message.includes('network')) {
+      errorMessage = 'Network connection error. Please check your internet connection.';
+    } else if (error.message.includes('RPC')) {
+      errorMessage = 'Blockchain network is temporarily unavailable. Please try again.';
+    } else if (error.message.includes('configured')) {
+      errorMessage = 'Application is not properly configured. Please contact support.';
+    }
+    
     return {
       success: false,
-      error: error.message || 'Failed to retrieve certificate from blockchain'
+      error: errorMessage
     };
   }
 }
 
 /**
- * Verify if a certificate exists
+ * Verify if a certificate exists (read-only)
  * @param {number} certificateId - The certificate ID to verify
  * @returns {Promise<{success: boolean, exists?: boolean, error?: string}>}
  */
 export async function verifyCertificate(certificateId) {
   try {
-    const { provider } = await getProviderAndSigner();
-    const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
-
+    console.log(`🔍 Verifying certificate ID: ${certificateId}`);
+    
+    const contract = await getReadOnlyContract();
     const exists = await contract.verifyCertificate(certificateId);
+    
+    console.log(`✅ Verification result: ${exists}`);
 
     return {
       success: true,
@@ -630,83 +290,11 @@ export async function verifyCertificate(certificateId) {
     };
 
   } catch (error) {
-    console.error('Verify Certificate Error:', error);
+    console.error('❌ Verify Certificate Error:', error);
     return {
       success: false,
       error: error.message || 'Failed to verify certificate'
     };
-  }
-}
-
-/**
- * Get all certificates issued by current user
- * @returns {Promise<{success: boolean, certificateIds?: number[], error?: string}>}
- */
-export async function getMyCertificates() {
-  try {
-    const { signer, provider } = await getProviderAndSigner();
-    const address = await signer.getAddress();
-    const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
-
-    const certificateIds = await contract.getCertificatesByIssuer(address);
-
-    return {
-      success: true,
-      certificateIds: certificateIds.map(id => Number(id))
-    };
-
-  } catch (error) {
-    console.error('Get My Certificates Error:', error);
-    return {
-      success: false,
-      error: error.message || 'Failed to retrieve certificates'
-    };
-  }
-}
-
-/**
- * Get current certificate counter from blockchain
- * @returns {Promise<{success: boolean, counter?: number, error?: string}>}
- */
-export async function getCurrentCounter() {
-  try {
-    const { provider } = await getProviderAndSigner();
-    const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
-
-    const counter = await contract.getCurrentCounter();
-
-    return {
-      success: true,
-      counter: Number(counter)
-    };
-
-  } catch (error) {
-    console.error('Get Current Counter Error:', error);
-    return {
-      success: false,
-      error: error.message || 'Failed to get current counter'
-    };
-  }
-}
-
-/**
- * Get current connected wallet address
- */
-export async function getCurrentAccount() {
-  try {
-    if (!isMetaMaskInstalled()) {
-      return null;
-    }
-
-    const accounts = await window.ethereum.request({
-      method: 'eth_accounts'
-    });
-
-    return accounts[0] || null;
-
-  } catch (error) {
-    console.error('Get Current Account Error:', error);
-    return null;
   }
 }
 
@@ -737,4 +325,32 @@ export function getEtherscanLink(txHash) {
  */
 export function getAddressLink(address) {
   return `https://sepolia.etherscan.io/address/${address}`;
+}
+
+/**
+ * Get the current certificate counter from blockchain (read-only)
+ * This shows how many certificates have been issued so far
+ * @returns {Promise<{success: boolean, count?: number, error?: string}>}
+ */
+export async function getCurrentCounter() {
+  try {
+    console.log('📊 Fetching certificate counter...');
+    
+    const contract = await getReadOnlyContract();
+    const counter = await contract.getCurrentCounter();
+    
+    console.log(`✅ Certificate counter: ${Number(counter)}`);
+
+    return {
+      success: true,
+      count: Number(counter)
+    };
+
+  } catch (error) {
+    console.error('❌ Get Current Counter Error:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to get certificate counter'
+    };
+  }
 }

@@ -4,7 +4,7 @@ import multer from 'multer';
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
+    fileSize: 10 * 1024 * 1024, // 10MB limit per file
   },
   fileFilter: (req, file, cb) => {
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/pdf'];
@@ -18,3 +18,6 @@ const upload = multer({
 
 // Export the single file upload middleware
 export const uploadSingleFile = upload.single('file');
+
+// Export the multiple files upload middleware (for bulk operations)
+export const uploadMultipleFiles = upload.array('files', 100); // Max 100 files

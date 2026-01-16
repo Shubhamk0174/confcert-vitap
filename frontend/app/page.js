@@ -3,10 +3,9 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import dynamic from 'next/dynamic';
-import { Shield, CheckCircle, Lock, Zap, ArrowRight, Sparkles, TrendingUp } from 'lucide-react';
+import { Shield, CheckCircle, Lock, Zap, ArrowRight, TrendingUp, Badge } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
-import { Badge } from '../components/ui/badge';
 import BackgroundPaths from '../components/background-paths';
 import Link from 'next/link';
 import { getCurrentCounter } from '../lib/web3';
@@ -18,24 +17,30 @@ export default function Home() {
   // Import the animation
   const certificateAnimation = require('../public/animations/Certificate.json');
 
-  const [certificatesIssued, setCertificatesIssued] = useState('1,000+');
+  // State for certificate count from blockchain
+  const [certificatesIssued, setCertificatesIssued] = useState('Loading...');
 
-  // Fetch actual certificates count on mount
+  // Fetch certificate count from blockchain on mount
   useEffect(() => {
-    const fetchCertificatesCount = async () => {
+    async function fetchCertificateCount() {
       try {
         const result = await getCurrentCounter();
         if (result.success) {
-          const count = result.counter - 1000; // Certificates start from 1001
-          setCertificatesIssued(count.toLocaleString());
+          // Format the count nicely (e.g., 1,234)
+          const formattedCount = result.count.toLocaleString();
+          setCertificatesIssued(formattedCount);
+        } else {
+          // Fallback to static value if there's an error
+          console.error('Failed to fetch certificate count:', result.error);
+          setCertificatesIssued('1,000+');
         }
       } catch (error) {
-        console.error('Failed to fetch certificates count:', error);
-        // Keep default value if fetch fails
+        console.error('Error fetching certificate count:', error);
+        setCertificatesIssued('1,000+');
       }
-    };
+    }
 
-    fetchCertificatesCount();
+    fetchCertificateCount();
   }, []);
 
   const features = [
