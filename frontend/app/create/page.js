@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useAuth } from "../../contexts/AuthContext";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import {
@@ -32,33 +31,25 @@ import { Badge } from "../../components/ui/badge";
 import { Input } from "../../components/ui/input";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { getIPFSUrl } from "../../lib/ipfs";
-import {
-  issueCertificate,
-  bulkIssueCertificates,
-  connectWallet,
-  getCurrentAccount,
-  getEtherscanLink,
-} from "../../lib/web3";
+import { getEtherscanLink } from "../../lib/web3";
+import { issueCertificate, bulkIssueCertificates } from "../../lib/certificate-api";
 import NextImage from "next/image";
 import localforage from 'localforage';
 import * as XLSX from 'xlsx';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '../../lib/canvas-constants';
 
 export default function CreateCertificate() {
-  const { user } = useAuth();
   const fileInputRef = useRef(null);
   const previewCanvasRef = useRef(null);
 
-  const [walletAddress, setWalletAddress] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [uploadingToIPFS, setUploadingToIPFS] = useState(false);
-  const [issuingOnChain, setIssuingOnChain] = useState(false);
-  const [transactionStatus, setTransactionStatus] = useState(""); // 'pending', 'mining', 'success'
+  const [transactionStatus, setTransactionStatus] = useState(""); // 'pending', 'processing', 'success'
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [ipfsHash, setIpfsHash] = useState("");
   const [certificateId, setCertificateId] = useState(null);
   const [transactionHash, setTransactionHash] = useState("");
+  const [issuerAddress, setIssuerAddress] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
@@ -82,9 +73,8 @@ export default function CreateCertificate() {
   const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0 });
   const [bulkResults, setBulkResults] = useState(null);
 
-  // Check wallet connection on mount
+  // Load saved templates on mount
   useEffect(() => {
-    checkWalletConnection();
     loadSavedTemplates();
   }, []);
 
@@ -139,10 +129,7 @@ export default function CreateCertificate() {
     }
   }, [selectedTemplate, excelFile, isBulkMode]);
 
-  const checkWalletConnection = async () => {
-    const address = await getCurrentAccount();
-    setWalletAddress(address);
-  };
+
 
   const loadSavedTemplates = async () => {
     try {
@@ -416,15 +403,7 @@ export default function CreateCertificate() {
     });
   };
 
-  const handleConnectWallet = async () => {
-    setError("");
-    const result = await connectWallet();
-    if (result.success) {
-      setWalletAddress(result.address);
-    } else {
-      setError(result.error);
-    }
-  };
+
 
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
@@ -468,7 +447,12 @@ export default function CreateCertificate() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleUploadToIPFS = async () => {
+  const handleIssueOnBlockchain = async () => {
+    if (!formData.studentName.trim()) {
+      setError("Please enter student name");
+      return;
+    }
+
     if (!useTemplate && !selectedFile) {
       setError("Please select a certificate file or choose a template");
       return;
@@ -479,13 +463,9 @@ export default function CreateCertificate() {
       return;
     }
 
-    if (useTemplate && !formData.studentName.trim()) {
-      setError("Please enter student name before uploading template");
-      return;
-    }
-
     setError("");
-    setUploadingToIPFS(true);
+    setLoading(true);
+    setTransactionStatus("processing");
 
     try {
       let fileToUpload;
@@ -504,168 +484,47 @@ export default function CreateCertificate() {
         fileToUpload = selectedFile;
       }
 
-      const formDataUpload = new FormData();
-      formDataUpload.append('file', fileToUpload);
-
-      const response = await fetch('/api/upload-to-ipfs', {
-        method: 'POST',
-        body: formDataUpload,
-      });
-
-      const result = await response.json();
-
-      if (response.ok) {
-        setIpfsHash(result.ipfsHash);
-        setSuccess(true);
-        setTimeout(() => setSuccess(false), 3000);
-      } else {
-        setError(result.error);
-      }
-    } catch (err) {
-      setError("Failed to upload to IPFS: " + err.message);
-    } finally {
-      setUploadingToIPFS(false);
-    }
-  };
-
-  const handleIssueOnBlockchain = async () => {
-    if (!formData.studentName.trim()) {
-      setError("Please enter student name");
-      return;
-    }
-
-    if (!walletAddress) {
-      setError("Please connect your wallet first");
-      return;
-    }
-
-    if (!useTemplate && !selectedFile) {
-      setError("Please select a certificate file or choose a template");
-      return;
-    }
-
-    if (useTemplate && !selectedTemplate) {
-      setError("Please select a template");
-      return;
-    }
-
-    setError("");
-    setIssuingOnChain(true);
-    setTransactionStatus("pending");
-
-    try {
-      let currentIpfsHash = ipfsHash;
-
-      // Upload to IPFS first if not already uploaded
-      if (!currentIpfsHash) {
-        setUploadingToIPFS(true);
-        
-        let fileToUpload;
-
-        if (useTemplate) {
-          // Generate certificate image from template
-          fileToUpload = await generateCertificateFromTemplate(
-            selectedTemplate,
-            formData.studentName
-          );
-          if (!fileToUpload) {
-            throw new Error("Failed to generate certificate from template");
-          }
-        } else {
-          fileToUpload = selectedFile;
-        }
-
-        const formDataUpload = new FormData();
-        formDataUpload.append('file', fileToUpload);
-
-        const response = await fetch('/api/upload-to-ipfs', {
-          method: 'POST',
-          body: formDataUpload,
-        });
-
-        const uploadResult = await response.json();
-
-        if (response.ok) {
-          currentIpfsHash = uploadResult.ipfsHash;
-          setIpfsHash(uploadResult.ipfsHash);
-        } else {
-          throw new Error(uploadResult.error || "Failed to upload to IPFS");
-        }
-        
-        setUploadingToIPFS(false);
-      }
-
-      setTransactionStatus("mining");
-      const result = await issueCertificate(formData.studentName, currentIpfsHash);
+      // Call the unified backend API that handles everything
+      const result = await issueCertificate(
+        fileToUpload,
+        formData.studentName,
+        formData.email || '',
+        sendEmail
+      );
 
       if (result.success) {
         setTransactionStatus("success");
-        setCertificateId(result.certificateId);
-        setTransactionHash(result.transactionHash);
+        setCertificateId(result.data.certificateId);
+        setTransactionHash(result.data.transactionHash);
+        setIssuerAddress(result.data.issuerAddress);
+        setIpfsHash(result.data.ipfsHash);
         setSuccess(true);
-
-        // Send email if enabled
-        if (sendEmail && formData.email) {
-          try {
-            const emailResponse = await fetch('/api/send-certificate-email', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                to: formData.email,
-                studentName: formData.studentName,
-                certificateId: result.certificateId,
-                ipfsHash: currentIpfsHash,
-                issuerAddress: walletAddress,
-                transactionHash: result.transactionHash,
-              }),
-            });
-            const emailResult = await emailResponse.json();
-            if (!emailResult.success) {
-              console.error('Failed to send email:', emailResult.error);
-            }
-          } catch (emailError) {
-            console.error('Failed to send email:', emailError);
-            // Don't set error, as certificate was issued successfully
-          }
-        }
-
-        // Don't auto-reset so user can see success message
-        // User can manually reset by clicking "Issue Another Certificate" button
       } else {
         setTransactionStatus("");
         setError(result.error);
       }
     } catch (err) {
       setTransactionStatus("");
-      setError("Failed to issue certificate on blockchain: " + err.message);
+      setError("Failed to issue certificate: " + err.message);
     } finally {
-      setIssuingOnChain(false);
+      setLoading(false);
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    // If IPFS hash not set, upload first
-    if (!ipfsHash && selectedFile) {
-      await handleUploadToIPFS();
-      return;
-    }
-
-    // Then issue on blockchain
     await handleIssueOnBlockchain();
   };
 
   const resetForm = () => {
-    setFormData({ studentName: "", email: "" });
+    setFormData({ studentName: "", email: "", customPlaceholderValues: {} });
     setSendEmail(false);
     setSelectedFile(null);
     setPreviewUrl(null);
     setIpfsHash("");
     setCertificateId(null);
     setTransactionHash("");
+    setIssuerAddress("");
     setTransactionStatus("");
     setSuccess(false);
     setError("");
@@ -784,11 +643,6 @@ export default function CreateCertificate() {
   };
 
   const handleBulkIssue = async () => {
-    if (!walletAddress) {
-      setError("Please connect your wallet first");
-      return;
-    }
-
     if (!selectedTemplate) {
       setError("Please select a template for bulk issuance");
       return;
@@ -801,8 +655,7 @@ export default function CreateCertificate() {
 
     setError("");
     setLoading(true);
-    setIssuingOnChain(true);
-    setTransactionStatus("pending");
+    setTransactionStatus("processing");
     setBulkProgress({ current: 0, total: studentsData.length });
 
     try {
@@ -815,79 +668,22 @@ export default function CreateCertificate() {
           studentsData[i].name,
           studentsData[i].customPlaceholderValues || {}
         );
-        certificates.push({ blob, student: studentsData[i] });
+        certificates.push(blob);
       }
 
-      // Step 2: Upload all to IPFS
-      const ipfsHashes = [];
-      for (let i = 0; i < certificates.length; i++) {
-        setBulkProgress({ current: i + 1, total: certificates.length, stage: 'Uploading to IPFS' });
-        
-        const formDataUpload = new FormData();
-        formDataUpload.append('file', certificates[i].blob);
-
-        const response = await fetch('/api/upload-to-ipfs', {
-          method: 'POST',
-          body: formDataUpload,
-        });
-
-        const uploadResult = await response.json();
-
-        if (!response.ok) {
-          throw new Error(`Failed to upload certificate ${i + 1} to IPFS: ${uploadResult.error}`);
-        }
-
-        ipfsHashes.push(uploadResult.ipfsHash);
-      }
-
-      // Step 3: Issue all certificates in one blockchain transaction
-      setBulkProgress({ current: 0, total: studentsData.length, stage: 'Issuing on blockchain' });
-      setTransactionStatus("mining");
-
+      // Step 2: Call backend API to handle everything (IPFS, blockchain, emails)
+      setBulkProgress({ current: 0, total: studentsData.length, stage: 'Processing on backend' });
+      
       const studentNames = studentsData.map(s => s.name);
-      const result = await bulkIssueCertificates(studentNames, ipfsHashes);
+      const emails = studentsData.map(s => s.email);
+      
+      const result = await bulkIssueCertificates(certificates, studentNames, emails, sendEmail);
 
       if (result.success) {
         setTransactionStatus("success");
-        setTransactionHash(result.transactionHash);
-        
-        // Store results
-        const results = studentsData.map((student, index) => ({
-          name: student.name,
-          email: student.email,
-          certificateId: result.certificateIds[index],
-          ipfsHash: ipfsHashes[index],
-        }));
-        
-        setBulkResults(results);
-
-        // Step 4: Send emails to all students
-        if (sendEmail) {
-          setBulkProgress({ current: 0, total: results.length, stage: 'Sending emails' });
-          
-          for (let i = 0; i < results.length; i++) {
-            if (results[i].email) {
-              try {
-                await fetch('/api/send-certificate-email', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    to: results[i].email,
-                    studentName: results[i].name,
-                    certificateId: results[i].certificateId,
-                    ipfsHash: results[i].ipfsHash,
-                    issuerAddress: walletAddress,
-                    transactionHash: result.transactionHash,
-                  }),
-                });
-              } catch (emailError) {
-                console.error(`Failed to send email to ${results[i].email}:`, emailError);
-              }
-            }
-            setBulkProgress({ current: i + 1, total: results.length, stage: 'Sending emails' });
-          }
-        }
-
+        setTransactionHash(result.data.transactionHash);
+        setIssuerAddress(result.data.issuerAddress);
+        setBulkResults(result.data.certificates);
         setSuccess(true);
       } else {
         setTransactionStatus("");
@@ -898,7 +694,6 @@ export default function CreateCertificate() {
       setError("Failed to issue certificates in bulk: " + err.message);
     } finally {
       setLoading(false);
-      setIssuingOnChain(false);
     }
   };
 
@@ -945,48 +740,6 @@ export default function CreateCertificate() {
               </Button>
             </div>
           </div>
-
-          {/* Wallet Connection */}
-          {!walletAddress && (
-            <Card className="mb-6 border-orange-200 bg-orange-50">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-semibold text-orange-900">
-                      Connect Your Wallet
-                    </h3>
-                    <p className="text-sm text-orange-700">
-                      Connect MetaMask to issue certificates
-                    </p>
-                  </div>
-                  <Button onClick={handleConnectWallet} variant="outline">
-                    Connect Wallet
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {walletAddress && (
-            <Card className="mb-6 border-primary/50 bg-primary/5">
-              <CardContent className="">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-semibold text-primary">
-                      Wallet Connected
-                    </h3>
-                    <p className="text-sm text-primary/80 font-mono">
-                      {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
-                    </p>
-                  </div>
-                  <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">
-                    <CheckCircle className="h-4 w-4 mr-1" />
-                    Connected
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
-          )}
 
           {/* Error Alert */}
           {error && (
@@ -1162,7 +915,6 @@ export default function CreateCertificate() {
                   onClick={handleBulkIssue}
                   disabled={
                     loading ||
-                    !walletAddress ||
                     !selectedTemplate ||
                     studentsData.length === 0
                   }
@@ -1256,7 +1008,7 @@ export default function CreateCertificate() {
                             Issue More Certificates
                           </Button>
                           <Button asChild className="flex-1">
-                            <Link href="/my-certificates">View My Certificates</Link>
+                            <Link href="/verify">Verify Certificates</Link>
                           </Button>
                         </div>
                       </div>
@@ -1303,7 +1055,7 @@ export default function CreateCertificate() {
                     onChange={handleChange}
                     required
                     placeholder="Enter student's full name"
-                    disabled={issuingOnChain}
+                    disabled={loading}
                   />
                 </div>
 
@@ -1319,7 +1071,7 @@ export default function CreateCertificate() {
                     value={formData.email}
                     onChange={handleChange}
                     placeholder="Enter student's email address"
-                    disabled={issuingOnChain}
+                    disabled={loading}
                   />
                   <div className="flex items-center space-x-2">
                     <input
@@ -1327,7 +1079,7 @@ export default function CreateCertificate() {
                       id="sendEmail"
                       checked={sendEmail}
                       onChange={(e) => setSendEmail(e.target.checked)}
-                      disabled={issuingOnChain}
+                      disabled={loading}
                       className="rounded"
                     />
                     <label htmlFor="sendEmail" className="text-sm text-muted-foreground">
@@ -1360,7 +1112,7 @@ export default function CreateCertificate() {
                               }));
                             }}
                             placeholder={`Enter ${placeholder.key}`}
-                            disabled={issuingOnChain}
+                            disabled={loading}
                           />
                         </div>
                       )
@@ -1500,7 +1252,7 @@ export default function CreateCertificate() {
                         onChange={handleFileSelect}
                         className="hidden"
                         id="certificate-file"
-                        disabled={uploadingToIPFS || issuingOnChain}
+                        disabled={loading}
                       />
                       <label
                         htmlFor="certificate-file"
@@ -1579,30 +1331,23 @@ export default function CreateCertificate() {
                     type="button"
                     onClick={handleIssueOnBlockchain}
                     disabled={
-                      issuingOnChain ||
-                      uploadingToIPFS ||
-                      !walletAddress ||
+                      loading ||
                       !formData.studentName ||
                       (!selectedFile && (!useTemplate || !selectedTemplate))
                     }
                     className="flex-1"
                   >
-                    {uploadingToIPFS ? (
+                    {loading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Uploading to IPFS...
-                      </>
-                    ) : issuingOnChain ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        {transactionStatus === "mining"
-                          ? "Mining Transaction..."
+                        {transactionStatus === "processing"
+                          ? "Processing..."
                           : "Issuing..."}
                       </>
                     ) : (
                       <>
                         <Award className="mr-2 h-4 w-4" />
-                        {ipfsHash ? "Issue on Blockchain" : "Upload & Issue on Blockchain"}
+                        Issue Certificate
                       </>
                     )}
                   </Button>
@@ -1686,8 +1431,8 @@ export default function CreateCertificate() {
                               Issue Another Certificate
                             </Button>
                             <Button asChild className="flex-1">
-                              <Link href="/my-certificates">
-                                View My Certificates
+                              <Link href="/verify">
+                              Verify Certificates
                               </Link>
                             </Button>
                           </div>
@@ -1713,7 +1458,7 @@ export default function CreateCertificate() {
           )}
 
           {/* Transaction Status */}
-          {issuingOnChain && (
+          {loading && transactionStatus === "processing" && (
             <Card className="mb-6 border-primary/30 bg-linear-to-r from-primary/5 to-primary/10 shadow-lg">
               <CardContent className="pt-6">
                 <div className="flex items-center gap-4">
@@ -1722,16 +1467,10 @@ export default function CreateCertificate() {
                   </div>
                   <div className="flex-1">
                     <h3 className="font-semibold text-primary mb-1">
-                      {transactionStatus === "pending" &&
-                        "Waiting for confirmation..."}
-                      {transactionStatus === "mining" &&
-                        "Transaction submitted! Mining in progress..."}
+                      Processing Certificate...
                     </h3>
                     <p className="text-sm text-primary/80">
-                      {transactionStatus === "pending" &&
-                        "Please confirm the transaction in MetaMask"}
-                      {transactionStatus === "mining" &&
-                        "This usually takes 15-30 seconds on Sepolia. Please wait..."}
+                      Uploading to IPFS, issuing on blockchain, and sending email. Please wait...
                     </p>
                   </div>
                 </div>
@@ -1740,7 +1479,7 @@ export default function CreateCertificate() {
           )}
 
           {/* Statistics */}
-          {walletAddress && (
+          {certificateId && (
             <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
               <Card>
                 <CardContent className="pt-6">
