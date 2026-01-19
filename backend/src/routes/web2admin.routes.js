@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { deleteAdmin, deleteClubAdmin, getAllAdmins, getAllClubAdmins, registerAdminCredentials, registerClubAdmin } from "../controller/web2AdminManagement.js/web2AdminController.js";
+import { getAdminStats } from "../controller/web2AdminManagement.js/getStatsController.js";
 import { isAdmin, isAuthenticated } from "../middleware/auth.js";
 
 
@@ -17,6 +18,8 @@ router.post("/get-club-admins",isAuthenticated, isAdmin, getAllClubAdmins);
 router.delete("/delete-admin/:id", isAuthenticated, isAdmin, deleteAdmin);
 
 router.delete("/delete-club-admin/:id", isAuthenticated, isAdmin, deleteClubAdmin);
+
+router.get("/get-stats", isAuthenticated, isAdmin, getAdminStats);
 
 
 export default router;

@@ -56,29 +56,40 @@ export const getCertificatesofuser = async (req, res) => {
     if (!email || !email.trim()) {
       return res
         .status(HttpStatusCode.BAD_REQUEST)
-        .json(new ApiError(HttpStatusCode.BAD_REQUEST, "Registration number is required"));
+        .json(new ApiError(HttpStatusCode.BAD_REQUEST, "Email is required"));
     }
 
-    const regNo = (email.split(".")[1]).split("@")[0]
+    const regNo = (email.split(".")[1]).split("@")[0];
 
     const { getCertificatesByRegNoFromBlockchain } = await import("../../services/blockchain.service.js");
-    const result = await getCertificatesByRegNoFromBlockchain(regNo.trim());
+    
+    // Fetch certificates for both lowercase and uppercase registration numbers
+    const lowerCaseResult = await getCertificatesByRegNoFromBlockchain(regNo.toLowerCase().trim());
+    const upperCaseResult = await getCertificatesByRegNoFromBlockchain(regNo.toUpperCase().trim());
 
-    if (!result.success) {
+    // Check if both requests failed
+    if (!lowerCaseResult.success && !upperCaseResult.success) {
       return res
         .status(HttpStatusCode.INTERNAL_SERVER_ERROR)
-        .json(new ApiError(HttpStatusCode.INTERNAL_SERVER_ERROR, result.error || "Failed to retrieve certificates"));
+        .json(new ApiError(HttpStatusCode.INTERNAL_SERVER_ERROR, lowerCaseResult.error || "Failed to retrieve certificates"));
     }
+
+    // Combine certificate IDs from both cases and remove duplicates
+    const lowerCaseIds = lowerCaseResult.success ? lowerCaseResult.certificateIds : [];
+    const upperCaseIds = upperCaseResult.success ? upperCaseResult.certificateIds : [];
+    
+    // Use Set to automatically remove duplicates
+    const combinedIds = [...new Set([...lowerCaseIds, ...upperCaseIds])];
 
     return res.status(HttpStatusCode.OK).json(
       new ApiResponse(
         HttpStatusCode.OK,
         {
           regNo: regNo.trim(),
-          certificateIds: result.certificateIds,
-          count: result.certificateIds.length
+          certificateIds: combinedIds,
+          count: combinedIds.length
         },
-        `Found ${result.certificateIds.length} certificates for registration number ${regNo}`
+        `Found ${combinedIds.length} certificates for registration number ${regNo}`
       )
     );
 
