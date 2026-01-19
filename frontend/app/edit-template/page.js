@@ -8,6 +8,7 @@ import { FileText, Sparkles, Clock, Trash2, Edit3 } from 'lucide-react';
 import Link from 'next/link';
 import CertificateEditor from '@/components/CertificateEditor';
 import localforage from 'localforage';
+import AuthGuard from '@/components/AuthGuard';
 
 export default function EditTemplatePage() {
   const [editorMode, setEditorMode] = useState(null); // 'default' or 'custom'
@@ -83,6 +84,7 @@ export default function EditTemplatePage() {
   }
 
   return (
+    <AuthGuard requireAuth={true} allowedRoles={['admin', 'club-admin']}>
     <div className="min-h-screen bg-white dark:bg-neutral-950 pt-24 pb-20 px-4 sm:px-6 lg:px-8">
       <div className="max-w-6xl mx-auto">
         <motion.div
@@ -227,5 +229,6 @@ export default function EditTemplatePage() {
         </motion.div>
       </div>
     </div>
+    </AuthGuard>
   );
 }

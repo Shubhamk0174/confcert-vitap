@@ -27,17 +27,34 @@ axiosClient.interceptors.response.use(
   (response) => {
     return response;
   },
-  (error) => {
+  async (error) => {
     // Handle common errors here
     if (error.response?.status === 401) {
       // Handle unauthorized - clear auth data
       console.error('Unauthorized access - clearing auth data');
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('user_data');
-      localStorage.removeItem('user_type');
-      // Redirect to login if needed
-      if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
-        window.location.href = '/login';
+      
+      // Only clear and redirect if not already on auth pages
+      if (typeof window !== 'undefined') {
+        const currentPath = window.location.pathname;
+        const isAuthPage = currentPath.includes('/login') || currentPath.includes('/register');
+        
+        if (!isAuthPage) {
+          // Clear localStorage
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('user_data');
+          localStorage.removeItem('user_type');
+          
+          // Clear Supabase session
+          try {
+            const { supabase } = await import('@/lib/supabase');
+            await supabase.auth.signOut();
+          } catch (err) {
+            console.error('Error signing out:', err);
+          }
+          
+          // Redirect to login
+          window.location.replace('/login');
+        }
       }
     }
     return Promise.reject(error);

@@ -19,7 +19,7 @@ const Lottie = dynamic(() => import('lottie-react'), { ssr: false });
 export default function Home() {
   // Import the animation
   const certificateAnimation = require('../public/animations/Certificate.json');
-  const {session} = useAuth()
+  const {session, user} = useAuth()
 
   // State for certificate count from blockchain
   const [certificatesIssued, setCertificatesIssued] = useState('Loading...');
@@ -27,6 +27,100 @@ export default function Home() {
   useEffect(() => {
     console.log("token", session?.access_token);
   }, [session])
+  
+  // Get user role
+  const getUserRole = () => {
+    return user?.userType || user?.user_metadata?.roles?.[0] || null;
+  };
+
+  // Get role-based CTA buttons
+  const getRoleCTAs = () => {
+    const role = getUserRole();
+    
+    if (!user) {
+      // Guest users - show general CTAs
+      return (
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Link href="/verify">
+            <Button size="lg" className="w-full sm:w-auto gap-2">
+              Verify Certificate
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          </Link>
+          <Link href="/login">
+            <Button size="lg" variant="outline" className="w-full sm:w-auto">
+              Get Started
+            </Button>
+          </Link>
+        </div>
+      );
+    }
+
+    if (role === 'admin') {
+      return (
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Link href="/create">
+            <Button size="lg" className="w-full sm:w-auto gap-2">
+              Create Certificate
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          </Link>
+          <Link href="/admin">
+            <Button size="lg" variant="outline" className="w-full sm:w-auto">
+              Admin Dashboard
+            </Button>
+          </Link>
+        </div>
+      );
+    }
+
+    if (role === 'club-admin') {
+      return (
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Link href="/create">
+            <Button size="lg" className="w-full sm:w-auto gap-2">
+              Create Certificate
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          </Link>
+          <Link href="/edit-template">
+            <Button size="lg" variant="outline" className="w-full sm:w-auto">
+              Manage Templates
+            </Button>
+          </Link>
+        </div>
+      );
+    }
+
+    if (role === 'student') {
+      return (
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Link href="/profile">
+            <Button size="lg" className="w-full sm:w-auto gap-2">
+              View My Certificates
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          </Link>
+          <Link href="/about">
+            <Button size="lg" variant="outline" className="w-full sm:w-auto">
+              Learn More
+            </Button>
+          </Link>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex flex-col sm:flex-row gap-3">
+        <Link href="/about">
+          <Button size="lg" className="w-full sm:w-auto gap-2">
+            Learn More
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+        </Link>
+      </div>
+    );
+  };
   
 
   // Fetch certificate count from blockchain on mount
@@ -114,20 +208,7 @@ export default function Home() {
                 Ensure authenticity, prevent fraud, and provide instant verification.
               </p>
 
-              <div className="flex flex-col sm:flex-row gap-3">
-                <Link href="/create">
-                  <Button size="lg" className="w-full sm:w-auto gap-2">
-                    Create Certificate
-                    <ArrowRight className="h-4 w-4" />
-                  </Button>
-                </Link>
-
-                <Link href="/verify">
-                  <Button size="lg" variant="outline" className="w-full sm:w-auto">
-                    Verify Certificate
-                  </Button>
-                </Link>
-              </div>
+              {getRoleCTAs()}
 
               {/* Stats */}
               <div className="grid grid-cols-3 gap-4 mt-20 pt-2 border-t">

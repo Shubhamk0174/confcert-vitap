@@ -37,6 +37,7 @@ import NextImage from "next/image";
 import localforage from 'localforage';
 import * as XLSX from 'xlsx';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '../../lib/canvas-constants';
+import AuthGuard from '../../components/AuthGuard';
 
 export default function CreateCertificate() {
   const fileInputRef = useRef(null);
@@ -60,6 +61,7 @@ export default function CreateCertificate() {
 
   const [formData, setFormData] = useState({
     studentName: "",
+    regNo: "",
     email: "",
     customPlaceholderValues: {}, // For storing custom placeholder values
   });
@@ -94,9 +96,11 @@ export default function CreateCertificate() {
 
           const students = jsonData.map((row, index) => {
             const name = row.name || row.Name || row.studentName || row.StudentName || "";
+            const regNo = row.regNo || row.RegNo || row.regno || row.registrationNumber || row.RegistrationNumber || "";
             const email = row.email || row.Email || "";
 
             if (!name) return null;
+            if (!regNo) return null;
 
             // Extract custom placeholder values
             const customPlaceholderValues = {};
@@ -115,6 +119,7 @@ export default function CreateCertificate() {
 
             return {
               name: name.trim(),
+              regNo: regNo.trim(),
               email: email.trim(),
               customPlaceholderValues,
             };
@@ -488,6 +493,7 @@ export default function CreateCertificate() {
       const result = await issueCertificate(
         fileToUpload,
         formData.studentName,
+        formData.regNo,
         formData.email || '',
         sendEmail
       );
@@ -517,7 +523,7 @@ export default function CreateCertificate() {
   };
 
   const resetForm = () => {
-    setFormData({ studentName: "", email: "", customPlaceholderValues: {} });
+    setFormData({ studentName: "", regNo: "", email: "", customPlaceholderValues: {} });
     setSendEmail(false);
     setSelectedFile(null);
     setPreviewUrl(null);
@@ -570,10 +576,15 @@ export default function CreateCertificate() {
 
         const students = jsonData.map((row, index) => {
           const name = row.name || row.Name || row.studentName || row.StudentName || "";
+          const regNo = row.regNo || row.RegNo || row.regno || row.registrationNumber || row.RegistrationNumber || "";
           const email = row.email || row.Email || "";
 
           if (!name) {
             throw new Error(`Row ${index + 1}: Missing name field`);
+          }
+
+          if (!regNo) {
+            throw new Error(`Row ${index + 1}: Missing regNo field`);
           }
 
           // Extract custom placeholder values
@@ -593,6 +604,7 @@ export default function CreateCertificate() {
 
           return {
             name: name.trim(),
+            regNo: regNo.trim(),
             email: email.trim(),
             customPlaceholderValues,
           };
@@ -619,7 +631,7 @@ export default function CreateCertificate() {
   };
 
   const downloadExcelTemplate = () => {
-    const templateRow = { name: "John Doe", email: "john@example.com" };
+    const templateRow = { name: "John Doe", regNo: "21BCE1234", email: "john@example.com" };
     
     // Add custom placeholder columns if template is selected
     if (selectedTemplate && selectedTemplate.customPlaceholders) {
@@ -632,8 +644,8 @@ export default function CreateCertificate() {
     
     const template = [
       templateRow,
-      { ...templateRow, name: "Jane Smith", email: "jane@example.com" },
-      { ...templateRow, name: "Bob Johnson", email: "bob@example.com" },
+      { ...templateRow, name: "Jane Smith", regNo: "21BCE5678", email: "jane@example.com" },
+      { ...templateRow, name: "Bob Johnson", regNo: "21BCE9012", email: "bob@example.com" },
     ];
 
     const worksheet = XLSX.utils.json_to_sheet(template);
@@ -675,9 +687,10 @@ export default function CreateCertificate() {
       setBulkProgress({ current: 0, total: studentsData.length, stage: 'Processing on backend' });
       
       const studentNames = studentsData.map(s => s.name);
+      const regNos = studentsData.map(s => s.regNo);
       const emails = studentsData.map(s => s.email);
       
-      const result = await bulkIssueCertificates(certificates, studentNames, emails, sendEmail);
+      const result = await bulkIssueCertificates(certificates, studentNames, regNos, emails, sendEmail);
 
       if (result.success) {
         setTransactionStatus("success");
@@ -698,6 +711,7 @@ export default function CreateCertificate() {
   };
 
   return (
+    <AuthGuard requireAuth={true} allowedRoles={['admin', 'club-admin']}>
     <div className="min-h-screen pt-24 pb-20 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
         <motion.div
@@ -1055,6 +1069,23 @@ export default function CreateCertificate() {
                     onChange={handleChange}
                     required
                     placeholder="Enter student's full name"
+                    disabled={loading}
+                  />
+                </div>
+
+                {/* Registration Number */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-muted-foreground" />
+                    Registration Number *
+                  </label>
+                  <Input
+                    type="text"
+                    name="regNo"
+                    value={formData.regNo}
+                    onChange={handleChange}
+                    required
+                    placeholder="Enter student's registration number"
                     disabled={loading}
                   />
                 </div>
@@ -1519,5 +1550,6 @@ export default function CreateCertificate() {
         </motion.div>
       </div>
     </div>
+    </AuthGuard>
   );
 }
