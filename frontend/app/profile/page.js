@@ -2,30 +2,106 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Shield, Mail, User, Award, Calendar, FileCheck, Download, Eye } from 'lucide-react';
+import { Shield, Mail, User, Award, Calendar, FileCheck, Download, Eye, AlertCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/AuthContext';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import AuthGuard from '@/components/AuthGuard';
+import axiosClient from '@/lib/axiosClient';
 
 export default function ProfilePage() {
-  const { user, loading } = useAuth();
-  const router = useRouter();
+  const { user } = useAuth();
   const [mounted, setMounted] = useState(false);
+  const [userData, setUserData] = useState(null);
+  const [loadingUserData, setLoadingUserData] = useState(true);
+  const [userDataError, setUserDataError] = useState(null);
+  const [certificates, setCertificates] = useState([]);
+  const [loadingCertificates, setLoadingCertificates] = useState(true);
+  const [certificatesError, setCertificatesError] = useState(null);
 
   useEffect(() => {
-    setMounted(true);
+    const setmountfunc = ()=>{
+      setMounted(true);
+    }
+    setmountfunc()
   }, []);
 
+  // Fetch user data from API
   useEffect(() => {
-    if (!loading && !user) {
-      router.push('/login');
-    }
-  }, [user, loading, router]);
+    const fetchUserData = async () => {
+      if (!user) return;
+
+      try {
+        setLoadingUserData(true);
+        setUserDataError(null);
+        const response = await axiosClient.get('/api/auth/get-user-data');
+        
+        if (response.data && response.data.data) {
+          setUserData(response.data.data.user);
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+        
+        // Don't set error for 401 - axios interceptor will handle redirect
+        if (error.response?.status !== 401) {
+          setUserDataError(error.response?.data?.message || 'Failed to load user data');
+        }
+      } finally {
+        setLoadingUserData(false);
+      }
+    };
+
+    fetchUserData();
+  }, [user]);
+
+  // Fetch user certificates from blockchain
+  useEffect(() => {
+    const fetchCertificates = async () => {
+      if (!user) return;
+
+      try {
+        setLoadingCertificates(true);
+        setCertificatesError(null);
+
+        // Step 1: Get certificate IDs for the user
+        const idsResponse = await axiosClient.get('/api/certificate/getcertificate-user');
+        
+        if (idsResponse.data && idsResponse.data.data && idsResponse.data.data.certificateIds) {
+          const certificateIds = idsResponse.data.data.certificateIds;
+          
+          if (certificateIds.length === 0) {
+            setCertificates([]);
+            setLoadingCertificates(false);
+            return;
+          }
+
+          // Step 2: Fetch detailed certificate information in batch
+          const detailsResponse = await axiosClient.post('/api/certificate/getcertificate/batch', {
+            certificateIds: certificateIds
+          });
+
+          if (detailsResponse.data && detailsResponse.data.data && detailsResponse.data.data.certificates) {
+            setCertificates(detailsResponse.data.data.certificates);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching certificates:', error);
+        // Don't set error for 401 - axios interceptor will handle redirect
+        if (error.response?.status !== 401) {
+          setCertificatesError(error.response?.data?.message || 'Failed to load certificates');
+        }
+      } finally {
+        setLoadingCertificates(false);
+      }
+    };
+
+    fetchCertificates();
+  }, [user]);
 
   // Scroll to certificates section if hash is present
   useEffect(() => {
@@ -39,63 +115,35 @@ export default function ProfilePage() {
     }
   }, [mounted]);
 
-  if (loading || !user) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent mb-4"></div>
-          <p className="text-muted-foreground">Loading profile...</p>
-        </div>
-      </div>
-    );
-  }
-
   const getUserInitials = () => {
-    if (user.username) {
-      return user.username.substring(0, 2).toUpperCase();
+    const displayUser = userData || user;
+    if (displayUser?.name) {
+      return displayUser.name.substring(0, 2).toUpperCase();
     }
-    if (user.email) {
-      return user.email.substring(0, 2).toUpperCase();
+    if (displayUser?.username) {
+      return displayUser.username.substring(0, 2).toUpperCase();
+    }
+    if (displayUser?.email) {
+      return displayUser.email.substring(0, 2).toUpperCase();
     }
     return 'U';
   };
 
   const getUserTypeLabel = () => {
+    const displayUser = userData || user;
+    const role = displayUser?.role || displayUser?.userType;
     const typeMap = {
       'admin': 'Admin',
       'club-admin': 'Club Admin',
+      'club_admin': 'Club Admin',
       'student': 'Student'
     };
-    return typeMap[user.userType] || user.userType;
+    return typeMap[role] || role || 'User';
   };
 
-  // Dummy certificates data
-  const dummyCertificates = [
-    {
-      id: 1,
-      title: 'Web Development Workshop',
-      issuer: 'Tech Club',
-      date: '2025-12-15',
-      certificateId: 'CERT-2025-001',
-    },
-    {
-      id: 2,
-      title: 'Blockchain Fundamentals',
-      issuer: 'Innovation Cell',
-      date: '2025-11-20',
-      certificateId: 'CERT-2025-002',
-    },
-    {
-      id: 3,
-      title: 'Hackathon Participation',
-      issuer: 'VIT AP',
-      date: '2025-10-05',
-      certificateId: 'CERT-2025-003',
-    },
-  ];
-
   return (
-    <div className="min-h-screen bg-background py-24 px-4 sm:px-6 lg:px-8">
+    <AuthGuard requireAuth={true} allowedRoles={['student']}>
+      <div className="min-h-screen bg-background py-24 px-4 sm:px-6 lg:px-8">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <motion.div
@@ -132,22 +180,42 @@ export default function ProfilePage() {
                       {getUserInitials()}
                     </AvatarFallback>
                   </Avatar>
-                  <h3 className="text-xl font-semibold mb-1">
-                    {user.username || 'User'}
-                  </h3>
-                  <Badge variant="secondary" className="mb-2">
-                    {getUserTypeLabel()}
-                  </Badge>
+                  {loadingUserData ? (
+                    <div className="space-y-2">
+                      <div className="h-6 w-32 bg-muted animate-pulse rounded"></div>
+                      <div className="h-5 w-24 bg-muted animate-pulse rounded mx-auto"></div>
+                    </div>
+                  ) : (
+                    <>
+                      <h3 className="text-xl font-semibold mb-1">
+                        {userData?.name || userData?.username || user?.username || 'User'}
+                      </h3>
+                      <Badge variant="secondary" className="mb-2">
+                        {getUserTypeLabel()}
+                      </Badge>
+                    </>
+                  )}
                 </div>
 
                 <Separator className="my-4" />
+
+                {userDataError && (
+                  <Alert variant="destructive" className="mb-4">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>{userDataError}</AlertDescription>
+                  </Alert>
+                )}
 
                 <div className="space-y-4">
                   <div className="flex items-start gap-3">
                     <Mail className="h-5 w-5 text-muted-foreground mt-0.5" />
                     <div className="flex-1">
                       <p className="text-sm font-medium text-muted-foreground">Email</p>
-                      <p className="text-sm break-all">{user.email || user.username}</p>
+                      {loadingUserData ? (
+                        <div className="h-4 w-40 bg-muted animate-pulse rounded mt-1"></div>
+                      ) : (
+                        <p className="text-sm break-all">{userData?.email || user?.email || user?.username || 'N/A'}</p>
+                      )}
                     </div>
                   </div>
 
@@ -155,15 +223,37 @@ export default function ProfilePage() {
                     <User className="h-5 w-5 text-muted-foreground mt-0.5" />
                     <div className="flex-1">
                       <p className="text-sm font-medium text-muted-foreground">Username</p>
-                      <p className="text-sm">{user.username || 'N/A'}</p>
+                      {loadingUserData ? (
+                        <div className="h-4 w-32 bg-muted animate-pulse rounded mt-1"></div>
+                      ) : (
+                        <p className="text-sm">{userData?.username || user?.username || 'N/A'}</p>
+                      )}
                     </div>
                   </div>
+
+                  {userData?.created_at && (
+                    <div className="flex items-start gap-3">
+                      <Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-muted-foreground">Member Since</p>
+                        <p className="text-sm">{new Date(userData.created_at).toLocaleDateString('en-US', { 
+                          year: 'numeric', 
+                          month: 'long', 
+                          day: 'numeric' 
+                        })}</p>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="flex items-start gap-3">
                     <Award className="h-5 w-5 text-muted-foreground mt-0.5" />
                     <div className="flex-1">
                       <p className="text-sm font-medium text-muted-foreground">Certificates Received</p>
-                      <p className="text-2xl font-bold text-primary">{dummyCertificates.length}</p>
+                      {loadingCertificates ? (
+                        <div className="h-8 w-12 bg-muted animate-pulse rounded mt-1"></div>
+                      ) : (
+                        <p className="text-2xl font-bold text-primary">{certificates.length}</p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -175,12 +265,6 @@ export default function ProfilePage() {
                     <Button variant="outline" className="w-full gap-2">
                       <FileCheck className="h-4 w-4" />
                       Verify Certificate
-                    </Button>
-                  </Link>
-                  <Link href="/create">
-                    <Button variant="outline" className="w-full gap-2">
-                      <Shield className="h-4 w-4" />
-                      Create Certificate
                     </Button>
                   </Link>
                 </div>
@@ -207,7 +291,18 @@ export default function ProfilePage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {dummyCertificates.length === 0 ? (
+                {loadingCertificates ? (
+                  <div className="space-y-4">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="h-32 bg-muted animate-pulse rounded"></div>
+                    ))}
+                  </div>
+                ) : certificatesError ? (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>{certificatesError}</AlertDescription>
+                  </Alert>
+                ) : certificates.length === 0 ? (
                   <div className="text-center py-12">
                     <Award className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                     <h3 className="text-lg font-semibold mb-2">No Certificates Yet</h3>
@@ -222,7 +317,7 @@ export default function ProfilePage() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {dummyCertificates.map((cert, index) => (
+                    {certificates.map((cert, index) => (
                       <motion.div
                         key={cert.id}
                         initial={{ opacity: 0, y: 10 }}
@@ -238,30 +333,41 @@ export default function ProfilePage() {
                                     <Award className="h-6 w-6 text-primary" />
                                   </div>
                                   <div className="flex-1">
-                                    <h4 className="font-semibold mb-1">{cert.title}</h4>
+                                    <h4 className="font-semibold mb-1">{cert.studentName}</h4>
                                     <div className="flex flex-col gap-1 text-sm text-muted-foreground">
-                                      <span>Issued by: {cert.issuer}</span>
+                                      <span>Issued by: {cert.issuerUsername}</span>
                                       <div className="flex items-center gap-1">
                                         <Calendar className="h-3 w-3" />
-                                        <span>{new Date(cert.date).toLocaleDateString('en-US', { 
+                                        <span>{new Date(cert.timestamp * 1000).toLocaleDateString('en-US', { 
                                           year: 'numeric', 
                                           month: 'long', 
                                           day: 'numeric' 
                                         })}</span>
                                       </div>
                                       <Badge variant="outline" className="w-fit text-xs">
-                                        ID: {cert.certificateId}
+                                        ID: {cert.id}
                                       </Badge>
+                                      <span className="text-xs font-mono break-all">Reg No: {cert.regNo}</span>
                                     </div>
                                   </div>
                                 </div>
                               </div>
                               <div className="flex flex-col gap-2">
-                                <Button size="sm" variant="outline" className="gap-1">
-                                  <Eye className="h-3 w-3" />
-                                  View
-                                </Button>
-                                <Button size="sm" variant="outline" className="gap-1">
+                                <Link href={`/verify?id=${cert.id}`}>
+                                  <Button size="sm" variant="outline" className="gap-1">
+                                    <Eye className="h-3 w-3" />
+                                    View
+                                  </Button>
+                                </Link>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  className="gap-1"
+                                  onClick={() => {
+                                    const ipfsUrl = `https://gateway.pinata.cloud/ipfs/${cert.ipfsHash}`;
+                                    window.open(ipfsUrl, '_blank');
+                                  }}
+                                >
                                   <Download className="h-3 w-3" />
                                   Download
                                 </Button>
@@ -279,5 +385,6 @@ export default function ProfilePage() {
         </div>
       </div>
     </div>
+    </AuthGuard>
   );
 }

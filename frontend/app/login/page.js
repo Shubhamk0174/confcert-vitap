@@ -13,23 +13,17 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import axiosClient from '@/lib/axiosClient';
+import GuestGuard from '@/components/GuestGuard';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { user, loading: authLoading, setUser } = useAuth();
+  const { setUser } = useAuth();
   
   const [userType, setUserType] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
-  // Redirect if already logged in
-  useEffect(() => {
-    if (!authLoading && user) {
-      router.push('/profile');
-    }
-  }, [user, authLoading, router]);
 
   const userTypes = [
     { 
@@ -116,8 +110,9 @@ export default function LoginPage() {
           });
         }
 
-        // Redirect to profile page
-        router.push('/profile');
+        // Redirect based on user type
+        const redirectPath = userType === 'admin' ? '/admin' : '/profile';
+        router.push(redirectPath);
       } else {
         setError('Login failed. Invalid response from server.');
       }
@@ -133,8 +128,7 @@ export default function LoginPage() {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4 py-12 pt-20">
+  return (    <GuestGuard>    <div className="min-h-screen bg-background flex items-center justify-center px-4 py-12 pt-20">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -336,5 +330,6 @@ export default function LoginPage() {
         </div>
       </motion.div>
     </div>
+    </GuestGuard>
   );
 }

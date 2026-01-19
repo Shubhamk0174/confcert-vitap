@@ -240,6 +240,14 @@ function VerifyContent() {
                         </div>
 
                         <div className="flex items-start gap-3 p-4 bg-secondary rounded-lg">
+                          <FileText className="h-5 w-5 text-primary mt-0.5" />
+                          <div className="flex-1">
+                            <p className="text-sm text-muted-foreground">Registration Number</p>
+                            <p className="text-lg font-semibold">{result.certificate.regNo}</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-start gap-3 p-4 bg-secondary rounded-lg">
                           <Calendar className="h-5 w-5 text-primary mt-0.5" />
                           <div className="flex-1">
                             <p className="text-sm text-muted-foreground">Issue Date</p>
@@ -253,11 +261,12 @@ function VerifyContent() {
                           <Shield className="h-5 w-5 text-primary mt-0.5" />
                           <div className="flex-1">
                             <p className="text-sm text-muted-foreground">Issued By</p>
-                            <p className="text-sm font-mono break-all">
-                              {result.certificate.issuer}
+                            <p className="text-lg font-semibold">{result.certificate.issuerUsername}</p>
+                            <p className="text-sm font-mono break-all mt-1">
+                              {result.certificate.issuerAddress}
                             </p>
                             <a 
-                              href={getAddressLink(result.certificate.issuer)}
+                              href={getAddressLink(result.certificate.issuerAddress)}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-xs text-blue-600 hover:underline flex items-center gap-1 mt-1"

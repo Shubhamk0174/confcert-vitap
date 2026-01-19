@@ -94,11 +94,21 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Method to clear auth without API call (for when token is already invalid)
+  const clearAuth = () => {
+    setUser(null);
+    setSession(null);
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('user_data');
+    localStorage.removeItem('user_type');
+  };
+
   const value = {
     user,
     session,
     loading,
     signOut,
+    clearAuth,
     setUser,
   };
 

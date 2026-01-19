@@ -49,19 +49,45 @@ export default function Navbar() {
     return typeMap[user.userType] || user.userType;
   };
 
-  const navItems = [
-    { name: 'Home', href: '/' },
-    { name: 'Create', href: '/create' },
-    { name: 'Verify', href: '/verify' },
-    { name: 'Templates', href: '/edit-template' },
-    { name: 'About', href: '/about' },
-  ];
+  // Role-based navigation items
+  const getNavItems = () => {
+    const baseItems = [
+      { name: 'Home', href: '/' },
+      { name: 'Verify', href: '/verify' },
+      { name: 'About', href: '/about' },
+    ];
 
-  // Add Admin Dashboard for admin users
-  const isAdmin = user?.user_metadata?.roles?.includes('admin');
-  const adminNavItems = isAdmin 
-    ? [...navItems, { name: 'Admin', href: '/admin' }]
-    : navItems;
+    if (!user) {
+      // Guest users - can verify certificates
+      return baseItems;
+    }
+
+    const userRole = user.userType || user.user_metadata?.roles?.[0];
+
+    if (userRole === 'admin') {
+      return [
+        ...baseItems,
+        { name: 'Create', href: '/create' },
+        { name: 'Templates', href: '/edit-template' },
+        { name: 'Admin', href: '/admin' },
+      ];
+    } else if (userRole === 'club-admin') {
+      return [
+        ...baseItems,
+        { name: 'Create', href: '/create' },
+        { name: 'Templates', href: '/edit-template' },
+      ];
+    } else if (userRole === 'student') {
+      return [
+        ...baseItems,
+        { name: 'Profile', href: '/profile' },
+      ];
+    }
+
+    return baseItems;
+  };
+
+  const navItems = getNavItems();
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
@@ -79,7 +105,7 @@ export default function Navbar() {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-0.5">
-            {adminNavItems.map((item) => (
+            {navItems.map((item) => (
               <Link key={item.name} href={item.href}>
                 <Button variant="ghost" className="font-medium">
                   {item.name}
@@ -184,7 +210,7 @@ export default function Navbar() {
             className="md:hidden overflow-hidden border-t bg-background"
           >
             <div className="px-4 py-4 space-y-2">
-              {adminNavItems.map((item) => (
+              {navItems.map((item) => (
                 <Link key={item.name} href={item.href} onClick={() => setIsOpen(false)}>
                   <Button variant="ghost" className="w-full justify-start">
                     {item.name}

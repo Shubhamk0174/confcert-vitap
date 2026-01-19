@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { 
   Users, 
@@ -26,12 +25,16 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import axiosClient from '@/lib/axiosClient';
+import AuthGuard from '@/components/AuthGuard';
 
 export default function AdminDashboard() {
-  const { user, loading } = useAuth();
-  const router = useRouter();
+  const { user } = useAuth();
   const [activeSection, setActiveSection] = useState('create-club-admin');
   const [mounted, setMounted] = useState(false);
+
+  // Admin user data
+  const [adminData, setAdminData] = useState(null);
+  const [loadingAdminData, setLoadingAdminData] = useState(true);
 
   // State for creating club admin
   const [clubAdminForm, setClubAdminForm] = useState({ username: '', password: '' });
@@ -64,11 +67,28 @@ export default function AdminDashboard() {
     setMounted(true);
   }, []);
 
+  // Fetch admin user data from API
   useEffect(() => {
-    if (!loading && (!user || !user.user_metadata?.roles?.includes('admin'))) {
-      router.push('/login');
-    }
-  }, [user, loading, router]);
+    const fetchAdminData = async () => {
+      if (!user) return;
+
+      try {
+        setLoadingAdminData(true);
+        const response = await axiosClient.get('/api/auth/get-user-data');
+        
+        if (response.data && response.data.data) {
+          setAdminData(response.data.data.user);
+        }
+      } catch (error) {
+        console.error('Error fetching admin data:', error);
+        // Don't set error for 401 - axios interceptor will handle redirect
+      } finally {
+        setLoadingAdminData(false);
+      }
+    };
+
+    fetchAdminData();
+  }, [user]);
 
   // Load data when section changes
   useEffect(() => {
@@ -90,7 +110,7 @@ export default function AdminDashboard() {
     setClubAdminMessage(null);
 
     try {
-      const response = await axiosClient.post('/api/auth/register/club-admin', clubAdminForm);
+      const response = await axiosClient.post('/api/web2admin/register/club-admin', clubAdminForm);
       setClubAdminMessage({ type: 'success', text: 'Club admin created successfully!' });
       setClubAdminForm({ username: '', password: '' });
     } catch (error) {
@@ -109,7 +129,7 @@ export default function AdminDashboard() {
     setAdminMessage(null);
 
     try {
-      const response = await axiosClient.post('/api/auth/register/admin', adminForm);
+      const response = await axiosClient.post('/api/web2admin/register/admin', adminForm);
       setAdminMessage({ type: 'success', text: 'Admin created successfully!' });
       setAdminForm({ username: '', password: '' });
       // Refresh admin list if we're on that section
@@ -129,7 +149,7 @@ export default function AdminDashboard() {
   const loadClubAdmins = async () => {
     setClubAdminsLoading(true);
     try {
-      const response = await axiosClient.get('/api/auth/club-admins');
+      const response = await axiosClient.post('/api/web2admin/get-club-admins');
       setClubAdmins(response.data.data.clubAdmins || []);
     } catch (error) {
       console.error('Failed to load club admins:', error);
@@ -141,7 +161,7 @@ export default function AdminDashboard() {
   const loadAdmins = async () => {
     setAdminsLoading(true);
     try {
-      const response = await axiosClient.get('/api/auth/admins');
+      const response = await axiosClient.post('/api/web2admin/get-admins');
       setAdmins(response.data.data.admins || []);
     } catch (error) {
       console.error('Failed to load admins:', error);
@@ -154,7 +174,7 @@ export default function AdminDashboard() {
     if (!confirm('Are you sure you want to delete this club admin?')) return;
 
     try {
-      await axiosClient.delete(`/api/auth/club-admins/${id}`);
+      await axiosClient.delete(`/api/web2admin/delete-club-admin/${id}`);
       loadClubAdmins();
     } catch (error) {
       alert(error.response?.data?.message || 'Failed to delete club admin');
@@ -165,7 +185,7 @@ export default function AdminDashboard() {
     if (!confirm('Are you sure you want to delete this admin?')) return;
 
     try {
-      await axiosClient.delete(`/api/auth/admins/${id}`);
+      await axiosClient.delete(`/api/web2admin/delete-admin/${id}`);
       loadAdmins();
     } catch (error) {
       alert(error.response?.data?.message || 'Failed to delete admin');
@@ -176,8 +196,11 @@ export default function AdminDashboard() {
     setSelectedClubAdmin(clubAdmin);
     setCertificatesLoading(true);
     try {
-      const response = await axiosClient.get(`/api/auth/club-admins/${clubAdmin.id}/certificates`);
-      setCertificates(response.data.data.certificates || []);
+      // TODO: This endpoint does not exist in backend yet
+      // const response = await axiosClient.get(`/api/web2admin/club-admins/${clubAdmin.id}/certificates`);
+      // setCertificates(response.data.data.certificates || []);
+      setCertificates([]); // Empty for now
+      console.warn('Certificate viewing endpoint not implemented in backend');
     } catch (error) {
       console.error('Failed to load certificates:', error);
       setCertificates([]);
@@ -189,8 +212,13 @@ export default function AdminDashboard() {
   const loadWalletStats = async () => {
     setWalletLoading(true);
     try {
-      const response = await axiosClient.get('/api/wallet/stats');
-      setWalletStats(response.data.data);
+      // TODO: This endpoint does not exist in backend yet - use web3admin endpoints instead
+      // const response = await axiosClient.get('/api/wallet/stats');
+      // setWalletStats(response.data.data);
+      
+      // For now, fetch deployment info from web3admin
+      const response = await axiosClient.get('/api/web3admin/get-deployment-info');
+      setWalletStats(response.data.data || {});
     } catch (error) {
       console.error('Failed to load wallet stats:', error);
     } finally {
@@ -203,17 +231,6 @@ export default function AdminDashboard() {
     alert('Copied to clipboard!');
   };
 
-  if (loading || !user) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent mb-4"></div>
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
   const menuItems = [
     { id: 'create-club-admin', label: 'Create Club Admin credentials', icon: UserPlus },
     { id: 'manage-club-admins', label: 'Manage Club Admins', icon: Users },
@@ -222,7 +239,8 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-background mt-16">
+    <AuthGuard requireAuth={true} allowedRoles={['admin']}>
+      <div className="min-h-screen bg-background mt-16">
       <div className="flex">
         {/* Sidebar */}
         <div className="w-64 min-h-screen bg-card border-r border-border p-6">
@@ -231,9 +249,13 @@ export default function AdminDashboard() {
               <Shield className="h-6 w-6 text-primary" />
               Admin Panel
             </h2>
-            <p className="text-sm text-muted-foreground mt-1">
-              {user.user_metadata?.username || 'Admin'}
-            </p>
+            {loadingAdminData ? (
+              <div className="h-5 w-24 bg-muted animate-pulse rounded mt-1"></div>
+            ) : (
+              <p className="text-sm text-muted-foreground mt-1">
+                {adminData?.name || adminData?.username || user?.user_metadata?.username || 'Admin'}
+              </p>
+            )}
           </div>
 
           <nav className="space-y-2">
@@ -683,5 +705,6 @@ export default function AdminDashboard() {
         </div>
       </div>
     </div>
+    </AuthGuard>
   );
 }

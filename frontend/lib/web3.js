@@ -12,11 +12,11 @@ const CONTRACT_ABI = [
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "",
+        "name": "_certificateId",
         "type": "uint256"
       }
     ],
-    "name": "certificates",
+    "name": "getCertificate",
     "outputs": [
       {
         "internalType": "uint256",
@@ -30,12 +30,22 @@ const CONTRACT_ABI = [
       },
       {
         "internalType": "string",
+        "name": "regNo",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
         "name": "ipfsHash",
         "type": "string"
       },
       {
+        "internalType": "string",
+        "name": "issuerUsername",
+        "type": "string"
+      },
+      {
         "internalType": "address",
-        "name": "issuer",
+        "name": "issuerAddress",
         "type": "address"
       },
       {
@@ -55,42 +65,17 @@ const CONTRACT_ABI = [
   {
     "inputs": [
       {
-        "internalType": "uint256",
-        "name": "_certificateId",
-        "type": "uint256"
+        "internalType": "string",
+        "name": "_regNo",
+        "type": "string"
       }
     ],
-    "name": "getCertificate",
+    "name": "getCertificatesByRegNo",
     "outputs": [
       {
-        "internalType": "uint256",
-        "name": "id",
-        "type": "uint256"
-      },
-      {
-        "internalType": "string",
-        "name": "studentName",
-        "type": "string"
-      },
-      {
-        "internalType": "string",
-        "name": "ipfsHash",
-        "type": "string"
-      },
-      {
-        "internalType": "address",
-        "name": "issuer",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "timestamp",
-        "type": "uint256"
-      },
-      {
-        "internalType": "bool",
-        "name": "exists",
-        "type": "bool"
+        "internalType": "uint256[]",
+        "name": "",
+        "type": "uint256[]"
       }
     ],
     "stateMutability": "view",
@@ -110,6 +95,40 @@ const CONTRACT_ABI = [
         "internalType": "bool",
         "name": "",
         "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_certificateId",
+        "type": "uint256"
+      }
+    ],
+    "name": "verifyCertificateWithDetails",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "exists",
+        "type": "bool"
+      },
+      {
+        "internalType": "string",
+        "name": "studentName",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "regNo",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "issuerUsername",
+        "type": "string"
       }
     ],
     "stateMutability": "view",
@@ -242,8 +261,10 @@ export async function getCertificate(certificateId) {
       certificate: {
         id: Number(result.id),
         studentName: result.studentName,
+        regNo: result.regNo,
         ipfsHash: result.ipfsHash,
-        issuer: result.issuer,
+        issuerUsername: result.issuerUsername,
+        issuerAddress: result.issuerAddress,
         timestamp: Number(result.timestamp),
         exists: result.exists
       }
@@ -294,6 +315,81 @@ export async function verifyCertificate(certificateId) {
     return {
       success: false,
       error: error.message || 'Failed to verify certificate'
+    };
+  }
+}
+
+/**
+ * Verify certificate and get basic details in one call (read-only)
+ * @param {number} certificateId - The certificate ID to verify
+ * @returns {Promise<{success: boolean, data?: object, error?: string}>}
+ */
+export async function verifyCertificateWithDetails(certificateId) {
+  try {
+    console.log(`🔍 Verifying certificate with details ID: ${certificateId}`);
+    
+    const contract = await getReadOnlyContract();
+    const result = await contract.verifyCertificateWithDetails(certificateId);
+    
+    console.log(`✅ Verification result:`, {
+      exists: result.exists,
+      studentName: result.studentName,
+      regNo: result.regNo
+    });
+
+    return {
+      success: true,
+      data: {
+        exists: result.exists,
+        studentName: result.studentName,
+        regNo: result.regNo,
+        issuerUsername: result.issuerUsername
+      }
+    };
+
+  } catch (error) {
+    console.error('❌ Verify Certificate With Details Error:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to verify certificate'
+    };
+  }
+}
+
+/**
+ * Get all certificate IDs for a specific registration number (read-only)
+ * @param {string} regNo - The registration number to search for
+ * @returns {Promise<{success: boolean, certificateIds?: number[], error?: string}>}
+ */
+export async function getCertificatesByRegNo(regNo) {
+  try {
+    console.log(`📋 Fetching certificates for regNo: ${regNo}`);
+    
+    if (!regNo || typeof regNo !== 'string') {
+      return {
+        success: false,
+        error: 'Invalid registration number'
+      };
+    }
+
+    const contract = await getReadOnlyContract();
+    const certificateIds = await contract.getCertificatesByRegNo(regNo);
+    
+    // Convert BigInt array to number array
+    const ids = certificateIds.map(id => Number(id));
+    
+    console.log(`✅ Found ${ids.length} certificate(s) for regNo: ${regNo}`);
+
+    return {
+      success: true,
+      certificateIds: ids
+    };
+
+  } catch (error) {
+    console.error('❌ Get Certificates By RegNo Error:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to get certificates by registration number'
     };
   }
 }
