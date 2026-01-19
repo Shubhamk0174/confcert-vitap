@@ -20,23 +20,23 @@ export const getUserData = async (req, res) => {
     }
 
     // Get user data from Supabase auth
-    const { data: authUser, error: authError } = await supabaseServer.auth.admin.getUserById(userId);
+    // const { data: authUser, error: authError } = await supabaseServer.auth.admin.getUserById(userId);
 
-    if (authError || !authUser.user) {
-      return res
-        .status(HttpStatusCode.NOT_FOUND)
-        .json(
-          new ApiError(HttpStatusCode.NOT_FOUND, "User not found")
-        );
-    }
+    // if (authError || !authUser.user) {
+    //   return res
+    //     .status(HttpStatusCode.NOT_FOUND)
+    //     .json(
+    //       new ApiError(HttpStatusCode.NOT_FOUND, "User not found")
+    //     );
+    // }
 
-    const username = authUser.user.user_metadata?.username;
+    // const username = userId
 
     // Get role from auth table
     const { data: userData, error: userQueryError } = await supabaseServer
       .from("auth")
-      .select("username, email, roles, created_at")
-      .eq("username", username)
+      .select("username, name, email, role, created_at")
+      .eq("auth_id", userId)
       .single();
 
     if (userQueryError || !userData) {
@@ -50,10 +50,11 @@ export const getUserData = async (req, res) => {
     return res.status(HttpStatusCode.OK).json(
       new ApiResponse(HttpStatusCode.OK, {
         user: {
-          id: authUser.user.id,
+          id: userId,
           username: userData.username,
+          name: userData.name,
           email: userData.email,
-          roles: userData.roles || [],
+          role: userData.role,
           created_at: userData.created_at
         }
       })

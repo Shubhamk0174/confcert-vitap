@@ -9,49 +9,50 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Contract ABI - Same as in frontend
+// Contract ABI - UPDATED to match CertificateRegistry.sol
 const CONTRACT_ABI = [
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_issuer",
-        "type": "address"
-      }
-    ],
-    "name": "authorizeIssuer",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "string[]",
-        "name": "_studentNames",
-        "type": "string[]"
-      },
-      {
-        "internalType": "string[]",
-        "name": "_ipfsHashes",
-        "type": "string[]"
-      }
-    ],
-    "name": "bulkIssueCertificates",
-    "outputs": [
-      {
-        "internalType": "uint256[]",
-        "name": "",
-        "type": "uint256[]"
-      }
-    ],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
   {
     "inputs": [],
     "stateMutability": "nonpayable",
     "type": "constructor"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "newAdmin",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "addedBy",
+        "type": "address"
+      }
+    ],
+    "name": "AdminAdded",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "removedAdmin",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "removedBy",
+        "type": "address"
+      }
+    ],
+    "name": "AdminRemoved",
+    "type": "event"
   },
   {
     "anonymous": false,
@@ -71,13 +72,25 @@ const CONTRACT_ABI = [
       {
         "indexed": false,
         "internalType": "string",
+        "name": "regNo",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
         "name": "ipfsHash",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "issuerUsername",
         "type": "string"
       },
       {
         "indexed": true,
         "internalType": "address",
-        "name": "issuer",
+        "name": "issuerAddress",
         "type": "address"
       },
       {
@@ -93,62 +106,12 @@ const CONTRACT_ABI = [
   {
     "inputs": [
       {
-        "internalType": "string",
-        "name": "_studentName",
-        "type": "string"
-      },
-      {
-        "internalType": "string",
-        "name": "_ipfsHash",
-        "type": "string"
-      }
-    ],
-    "name": "issueCertificate",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
         "internalType": "address",
-        "name": "issuer",
+        "name": "_newAdmin",
         "type": "address"
       }
     ],
-    "name": "IssuerAuthorized",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "issuer",
-        "type": "address"
-      }
-    ],
-    "name": "IssuerRevoked",
-    "type": "event"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_issuer",
-        "type": "address"
-      }
-    ],
-    "name": "revokeIssuer",
+    "name": "addAdmin",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -161,7 +124,7 @@ const CONTRACT_ABI = [
         "type": "address"
       }
     ],
-    "name": "authorizedIssuers",
+    "name": "admins",
     "outputs": [
       {
         "internalType": "bool",
@@ -170,6 +133,40 @@ const CONTRACT_ABI = [
       }
     ],
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string[]",
+        "name": "_studentNames",
+        "type": "string[]"
+      },
+      {
+        "internalType": "string[]",
+        "name": "_regNos",
+        "type": "string[]"
+      },
+      {
+        "internalType": "string[]",
+        "name": "_ipfsHashes",
+        "type": "string[]"
+      },
+      {
+        "internalType": "string",
+        "name": "_issuerUsername",
+        "type": "string"
+      }
+    ],
+    "name": "bulkIssueCertificates",
+    "outputs": [
+      {
+        "internalType": "uint256[]",
+        "name": "",
+        "type": "uint256[]"
+      }
+    ],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -194,12 +191,22 @@ const CONTRACT_ABI = [
       },
       {
         "internalType": "string",
+        "name": "regNo",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
         "name": "ipfsHash",
         "type": "string"
       },
       {
+        "internalType": "string",
+        "name": "issuerUsername",
+        "type": "string"
+      },
+      {
         "internalType": "address",
-        "name": "issuer",
+        "name": "issuerAddress",
         "type": "address"
       },
       {
@@ -211,6 +218,32 @@ const CONTRACT_ABI = [
         "internalType": "bool",
         "name": "exists",
         "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "deployer",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getAllCertificates",
+    "outputs": [
+      {
+        "internalType": "uint256[]",
+        "name": "",
+        "type": "uint256[]"
       }
     ],
     "stateMutability": "view",
@@ -238,12 +271,22 @@ const CONTRACT_ABI = [
       },
       {
         "internalType": "string",
+        "name": "regNo",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
         "name": "ipfsHash",
         "type": "string"
       },
       {
+        "internalType": "string",
+        "name": "issuerUsername",
+        "type": "string"
+      },
+      {
         "internalType": "address",
-        "name": "issuer",
+        "name": "issuerAddress",
         "type": "address"
       },
       {
@@ -263,12 +306,111 @@ const CONTRACT_ABI = [
   {
     "inputs": [
       {
+        "internalType": "uint256[]",
+        "name": "_certificateIds",
+        "type": "uint256[]"
+      }
+    ],
+    "name": "getCertificatesBatch",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "id",
+            "type": "uint256"
+          },
+          {
+            "internalType": "string",
+            "name": "studentName",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "regNo",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "ipfsHash",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "issuerUsername",
+            "type": "string"
+          },
+          {
+            "internalType": "address",
+            "name": "issuerAddress",
+            "type": "address"
+          },
+          {
+            "internalType": "uint256",
+            "name": "timestamp",
+            "type": "uint256"
+          },
+          {
+            "internalType": "bool",
+            "name": "exists",
+            "type": "bool"
+          }
+        ],
+        "internalType": "struct CertificateRegistry.Certificate[]",
+        "name": "",
+        "type": "tuple[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "address",
-        "name": "_issuer",
+        "name": "_issuerAddress",
         "type": "address"
       }
     ],
-    "name": "getCertificatesByIssuer",
+    "name": "getCertificatesByIssuerAddress",
+    "outputs": [
+      {
+        "internalType": "uint256[]",
+        "name": "",
+        "type": "uint256[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "_issuerUsername",
+        "type": "string"
+      }
+    ],
+    "name": "getCertificatesByIssuerName",
+    "outputs": [
+      {
+        "internalType": "uint256[]",
+        "name": "",
+        "type": "uint256[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "_regNo",
+        "type": "string"
+      }
+    ],
+    "name": "getCertificatesByRegNo",
     "outputs": [
       {
         "internalType": "uint256[]",
@@ -293,14 +435,45 @@ const CONTRACT_ABI = [
     "type": "function"
   },
   {
+    "inputs": [],
+    "name": "getDeploymentInfo",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "deployerAddress",
+        "type": "address"
+      },
+      {
+        "internalType": "bool",
+        "name": "isDeployerStillAdmin",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getTotalCertificatesIssued",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [
       {
         "internalType": "address",
-        "name": "_issuer",
+        "name": "_address",
         "type": "address"
       }
     ],
-    "name": "isAuthorized",
+    "name": "isAdmin",
     "outputs": [
       {
         "internalType": "bool",
@@ -312,16 +485,50 @@ const CONTRACT_ABI = [
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "owner",
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "_studentName",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "_regNo",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "_ipfsHash",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "_issuerUsername",
+        "type": "string"
+      }
+    ],
+    "name": "issueCertificate",
     "outputs": [
       {
-        "internalType": "address",
+        "internalType": "uint256",
         "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_admin",
         "type": "address"
       }
     ],
-    "stateMutability": "view",
+    "name": "removeAdmin",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -338,6 +545,40 @@ const CONTRACT_ABI = [
         "internalType": "bool",
         "name": "",
         "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_certificateId",
+        "type": "uint256"
+      }
+    ],
+    "name": "verifyCertificateWithDetails",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "exists",
+        "type": "bool"
+      },
+      {
+        "internalType": "string",
+        "name": "studentName",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "regNo",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "issuerUsername",
+        "type": "string"
       }
     ],
     "stateMutability": "view",
@@ -383,13 +624,15 @@ function getContract(wallet) {
 /**
  * Issue a single certificate on the blockchain
  * @param {string} studentName - Name of the student
+ * @param {string} regNo - Registration number of the student
  * @param {string} ipfsHash - IPFS hash of the certificate image
+ * @param {string} issuerUsername - Name of the issuing organization (e.g., "VIT AP")
  * @returns {Promise<{success: boolean, certificateId?: number, transactionHash?: string, issuerAddress?: string, error?: string}>}
  */
-export async function issueCertificateOnBlockchain(studentName, ipfsHash) {
+export async function issueCertificateOnBlockchain(studentName, regNo, ipfsHash, issuerUsername) {
   try {
-    if (!studentName || !ipfsHash) {
-      throw new Error('Student name and IPFS hash are required');
+    if (!studentName || !regNo || !ipfsHash || !issuerUsername) {
+      throw new Error('Student name, reg no, IPFS hash, and issuer username are required');
     }
 
     const { wallet } = getProviderAndWallet();
@@ -398,11 +641,13 @@ export async function issueCertificateOnBlockchain(studentName, ipfsHash) {
 
     console.log('Issuing certificate on blockchain...');
     console.log('Student:', studentName);
+    console.log('Reg No:', regNo);
     console.log('IPFS Hash:', ipfsHash);
+    console.log('Issuer Username:', issuerUsername);
     console.log('Issuer Address:', issuerAddress);
 
-    // Call the smart contract function
-    const tx = await contract.issueCertificate(studentName, ipfsHash);
+    // Call the smart contract function with new parameters
+    const tx = await contract.issueCertificate(studentName, regNo, ipfsHash, issuerUsername);
     
     console.log('Transaction sent:', tx.hash);
     
@@ -446,13 +691,19 @@ export async function issueCertificateOnBlockchain(studentName, ipfsHash) {
 /**
  * Issue multiple certificates in a single transaction (bulk issuance)
  * @param {string[]} studentNames - Array of student names
+ * @param {string[]} regNos - Array of registration numbers
  * @param {string[]} ipfsHashes - Array of IPFS hashes for each certificate
+ * @param {string} issuerUsername - Name of the issuing organization (same for all certificates)
  * @returns {Promise<{success: boolean, certificateIds?: number[], transactionHash?: string, issuerAddress?: string, error?: string}>}
  */
-export async function bulkIssueCertificatesOnBlockchain(studentNames, ipfsHashes) {
+export async function bulkIssueCertificatesOnBlockchain(studentNames, regNos, ipfsHashes, issuerUsername) {
   try {
-    if (!studentNames || !ipfsHashes || studentNames.length !== ipfsHashes.length) {
-      throw new Error('Student names and IPFS hashes must be arrays of equal length');
+    if (!studentNames || !regNos || !ipfsHashes || !issuerUsername) {
+      throw new Error('Student names, reg nos, IPFS hashes, and issuer username are required');
+    }
+
+    if (studentNames.length !== regNos.length || studentNames.length !== ipfsHashes.length) {
+      throw new Error('Student names, reg nos, and IPFS hashes must be arrays of equal length');
     }
 
     if (studentNames.length === 0) {
@@ -468,10 +719,11 @@ export async function bulkIssueCertificatesOnBlockchain(studentNames, ipfsHashes
     const issuerAddress = wallet.address;
 
     console.log(`Issuing ${studentNames.length} certificates in bulk...`);
+    console.log('Issuer Username:', issuerUsername);
     console.log('Issuer Address:', issuerAddress);
 
-    // Call the smart contract function
-    const tx = await contract.bulkIssueCertificates(studentNames, ipfsHashes);
+    // Call the smart contract function with new parameters
+    const tx = await contract.bulkIssueCertificates(studentNames, regNos, ipfsHashes, issuerUsername);
     
     console.log('Bulk transaction sent:', tx.hash);
     
@@ -536,8 +788,10 @@ export async function getCertificateFromBlockchain(certificateId) {
       certificate: {
         id: Number(result.id),
         studentName: result.studentName,
+        regNo: result.regNo,
         ipfsHash: result.ipfsHash,
-        issuer: result.issuer,
+        issuerUsername: result.issuerUsername,
+        issuerAddress: result.issuerAddress,
         timestamp: Number(result.timestamp),
         exists: result.exists,
       },
@@ -625,4 +879,174 @@ export function getAddressLink(address) {
 export function shortenAddress(address) {
   if (!address) return '';
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
+
+/**
+ * Get all certificates for a specific registration number
+ * @param {string} regNo - Registration number to search for
+ * @returns {Promise<{success: boolean, certificateIds?: number[], error?: string}>}
+ */
+export async function getCertificatesByRegNoFromBlockchain(regNo) {
+  try {
+    const { provider } = getProviderAndWallet();
+    const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+
+    const certificateIds = await contract.getCertificatesByRegNo(regNo);
+
+    return {
+      success: true,
+      certificateIds: certificateIds.map(id => Number(id)),
+    };
+
+  } catch (error) {
+    console.error('Get Certificates By Reg No Error:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to retrieve certificates by registration number',
+    };
+  }
+}
+
+/**
+ * Get all certificates issued by a specific organization name
+ * @param {string} issuerName - Name of the issuing organization
+ * @returns {Promise<{success: boolean, certificateIds?: number[], error?: string}>}
+ */
+export async function getCertificatesByIssuerNameFromBlockchain(issuerName) {
+  try {
+    const { provider } = getProviderAndWallet();
+    const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+
+    const certificateIds = await contract.getCertificatesByIssuerName(issuerName);
+
+    return {
+      success: true,
+      certificateIds: certificateIds.map(id => Number(id)),
+    };
+
+  } catch (error) {
+    console.error('Get Certificates By Issuer Name Error:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to retrieve certificates by issuer name',
+    };
+  }
+}
+
+/**
+ * Get all certificates issued by a specific wallet address
+ * @param {string} issuerAddress - Address of the admin who issued certificates
+ * @returns {Promise<{success: boolean, certificateIds?: number[], error?: string}>}
+ */
+export async function getCertificatesByIssuerAddressFromBlockchain(issuerAddress) {
+  try {
+    const { provider } = getProviderAndWallet();
+    const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+
+    const certificateIds = await contract.getCertificatesByIssuerAddress(issuerAddress);
+
+    return {
+      success: true,
+      certificateIds: certificateIds.map(id => Number(id)),
+    };
+
+  } catch (error) {
+    console.error('Get Certificates By Issuer Address Error:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to retrieve certificates by issuer address',
+    };
+  }
+}
+
+/**
+ * Get all certificates issued till date
+ * @returns {Promise<{success: boolean, certificateIds?: number[], error?: string}>}
+ */
+export async function getAllCertificatesFromBlockchain() {
+  try {
+    const { provider } = getProviderAndWallet();
+    const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+
+    const certificateIds = await contract.getAllCertificates();
+
+    return {
+      success: true,
+      certificateIds: certificateIds.map(id => Number(id)),
+    };
+
+  } catch (error) {
+    console.error('Get All Certificates Error:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to retrieve all certificates',
+    };
+  }
+}
+
+/**
+ * Get detailed information for multiple certificates at once
+ * @param {number[]} certificateIds - Array of certificate IDs to retrieve
+ * @returns {Promise<{success: boolean, certificates?: object[], error?: string}>}
+ */
+export async function getCertificatesBatchFromBlockchain(certificateIds) {
+  try {
+    const { provider } = getProviderAndWallet();
+    const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+
+    const certificates = await contract.getCertificatesBatch(certificateIds);
+
+    // Convert to readable format
+    const formattedCertificates = certificates.map(cert => ({
+      id: Number(cert.id),
+      studentName: cert.studentName,
+      regNo: cert.regNo,
+      ipfsHash: cert.ipfsHash,
+      issuerUsername: cert.issuerUsername,
+      issuerAddress: cert.issuerAddress,
+      timestamp: Number(cert.timestamp),
+      exists: cert.exists,
+    }));
+
+    return {
+      success: true,
+      certificates: formattedCertificates,
+    };
+
+  } catch (error) {
+    console.error('Get Certificates Batch Error:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to retrieve certificate batch',
+    };
+  }
+}
+
+/**
+ * Get total certificates count from contract
+ */
+export async function getTotalCertificatesCount() {
+  try {
+    const provider = new ethers.JsonRpcProvider(RPC_URL);
+    const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+    const count = await contract.getTotalCertificatesIssued();
+    return {
+      success: true,
+      count: Number(count)
+    };
+  } catch (error) {
+    console.error('Error fetching certificates count:', error);
+    return {
+      success: false,
+      count: 0,
+      error: error.message
+    };
+  }
+}
+
+/**
+ * Get contract address
+ */
+export function getContractAddress() {
+  return CONTRACT_ADDRESS;
 }

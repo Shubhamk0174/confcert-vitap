@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import Image from 'next/image';
-import { Heart } from 'lucide-react';
+import Image from "next/image";
+import { Heart } from "lucide-react";
 
 export default function Footer() {
   return (
@@ -13,7 +13,9 @@ export default function Footer() {
             <Heart className="h-4 w-4 text-red-500 fill-red-500 " />
             by
           </span>
-          
+
+          <span className="font-bold">&#91;</span>
+
           {/* Shubham's section */}
           <div className="flex flex-col sm:flex-row items-center gap-2">
             <span className="font-semibold text-foreground">Shubham</span>
@@ -33,7 +35,7 @@ export default function Footer() {
                   className="dark:invert"
                 />
               </a>
-              
+
               <a
                 href="https://www.linkedin.com/in/shubhamkumar-profile/"
                 target="_blank"
@@ -50,9 +52,9 @@ export default function Footer() {
               </a>
             </div>
           </div>
-          
-          <span className="text-muted-foreground/50">•</span>
-          
+
+          <span className="font-bold">,</span>
+
           {/* Second person's section */}
           <div className="flex flex-col sm:flex-row items-center gap-2">
             <span className="font-semibold text-foreground">Amar</span>
@@ -62,7 +64,7 @@ export default function Footer() {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="transition-transform hover:scale-110 hover:opacity-80"
-                aria-label="[Your Name]'s GitHub Profile"
+                aria-label="Amars's GitHub Profile"
               >
                 <Image
                   src="/icons/icons8-github-64.png"
@@ -72,13 +74,13 @@ export default function Footer() {
                   className="dark:invert"
                 />
               </a>
-              
+
               <a
                 href="https://www.linkedin.com/in/amarsankarmaitra/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="transition-transform hover:scale-110 hover:opacity-80"
-                aria-label="[Your Name]'s LinkedIn Profile"
+                aria-label="Amar's LinkedIn Profile"
               >
                 <Image
                   src="/icons/icons8-linkedin-96.png"
@@ -87,6 +89,8 @@ export default function Footer() {
                   height={18}
                 />
               </a>
+
+              <span className="font-bold">&#93;</span>
             </div>
           </div>
         </div>

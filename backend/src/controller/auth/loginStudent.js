@@ -5,10 +5,10 @@ import { createAnonClient } from "../../db/supabaseClient.js";
 import { supabaseServer } from "../../db/supabaseServer.js";
 
 /**
- * Member Login with Full Email
+ * Student Login with Full Email
  * Requires full email and email verification
  */
-export const loginMember = async (req, res) => {
+export const loginStudent = async (req, res) => {
   try {
     const { username, password } = req.body;
 
@@ -21,7 +21,7 @@ export const loginMember = async (req, res) => {
         );
     }
 
-    // For members, expect full email
+    // For students, expect full email
     if (!username.endsWith("@vitapstudent.ac.in")) {
       return res
         .status(HttpStatusCode.BAD_REQUEST)
@@ -30,12 +30,12 @@ export const loginMember = async (req, res) => {
         );
     }
 
-    // Check if user exists in auth table with member role
-    // Members are stored with email (username is NULL)
+    // Check if user exists in auth table with student role
+    // Students are stored with email 
     const { data: userData, error: userQueryError } = await supabaseServer
       .from("auth")
-      .select("id, username, email, roles")
-      .eq("email", username) // Query by full email for members
+      .select("id, username, email, role")
+      .eq("email", username) // Query by full email for students
       .single();
 
     if (userQueryError || !userData) {
@@ -47,13 +47,13 @@ export const loginMember = async (req, res) => {
         );
     }
 
-    // Verify the user has member role
-    const userRoles = userData.roles || [];
-    if (!userRoles.includes("member")) {
+    // Verify the user has student role
+    const userRole = userData.role;
+    if (userRole !== "student") {
       return res
         .status(HttpStatusCode.FORBIDDEN)
         .json(
-          new ApiError(HttpStatusCode.FORBIDDEN, `Access denied. This account does not have member role. Please use the correct login endpoint.`)
+          new ApiError(HttpStatusCode.FORBIDDEN, `Access denied. This account does not have student role. Please use the correct login endpoint.`)
         );
     }
 
@@ -63,7 +63,7 @@ export const loginMember = async (req, res) => {
     const anonClient = createAnonClient();
 
     const { data, error } = await anonClient.auth.signInWithPassword({
-      email: username, // Use full email for members
+      email: username, // Use full email for students
       password
     });
 
@@ -107,10 +107,10 @@ export const loginMember = async (req, res) => {
         message: "Login successful",
         user: {
           id: data.user.id,
-          username: null, // Members don't have username stored
+          username: null, // Students don't have username stored
           email: username, // Return full email
-          roles: userData.roles,
-          currentRole: "member",
+          role: userData.role,
+          currentRole: "student",
           emailVerified: true
         },
         session: {

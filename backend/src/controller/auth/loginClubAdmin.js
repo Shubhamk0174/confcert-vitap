@@ -3,7 +3,7 @@ import { ApiError } from "../../utils/ApiError.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 import { createAnonClient } from "../../db/supabaseClient.js";
 import { supabaseServer } from "../../db/supabaseServer.js";
-import { constructEmail } from "./helpers.js";
+import { constructEmail } from "../../utils/helpers.js";
 
 /**
  * Club Admin Login
@@ -25,7 +25,7 @@ export const loginClubAdmin = async (req, res) => {
     // Check if user exists in auth table
     const { data: userData, error: userQueryError } = await supabaseServer
       .from("auth")
-      .select("id, username, roles")
+      .select("id, username, role")
       .eq("username", username)
       .single();
 
@@ -41,12 +41,12 @@ export const loginClubAdmin = async (req, res) => {
     console.log("User found in DB:", userData);
 
     // Verify the user has the correct role for this login endpoint
-    const userRoles = userData.roles || [];
-    if (!userRoles.includes("club.admin")) {
+    const userRole = userData.role;
+    if (userRole !== "club.admin") {
       return res
         .status(HttpStatusCode.FORBIDDEN)
         .json(
-          new ApiError(HttpStatusCode.FORBIDDEN, `Access denied. This account does not have club.admin role. Available roles: ${userRoles.join(", ")}. Please use the correct login endpoint.`)
+          new ApiError(HttpStatusCode.FORBIDDEN, `Access denied. This account does not have club admin role.`)
         );
     }
 
@@ -82,7 +82,7 @@ export const loginClubAdmin = async (req, res) => {
         user: {
           id: data.user.id,
           username: username,
-          roles: userData.roles,
+          role: userData.role,
           currentRole: "club.admin"
         },
         session: {
