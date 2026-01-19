@@ -1,9 +1,9 @@
 import FormData from 'form-data';
-import fetch from 'node-fetch';
 
 /**
  * IPFS Utility Functions
  * Handles uploading certificate images to IPFS using Pinata service
+ * Note: Uses Node.js built-in fetch (available in Node 18+)
  */
 
 /**

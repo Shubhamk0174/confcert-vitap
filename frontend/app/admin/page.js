@@ -37,12 +37,12 @@ export default function AdminDashboard() {
   const [loadingAdminData, setLoadingAdminData] = useState(true);
 
   // State for creating club admin
-  const [clubAdminForm, setClubAdminForm] = useState({ username: '', password: '' });
+  const [clubAdminForm, setClubAdminForm] = useState({ name: '', username: '', password: '' });
   const [clubAdminLoading, setClubAdminLoading] = useState(false);
   const [clubAdminMessage, setClubAdminMessage] = useState(null);
 
   // State for creating admin
-  const [adminForm, setAdminForm] = useState({ username: '', password: '' });
+  const [adminForm, setAdminForm] = useState({ name: '', username: '', password: '' });
   const [adminLoading, setAdminLoading] = useState(false);
   const [adminMessage, setAdminMessage] = useState(null);
 
@@ -57,6 +57,11 @@ export default function AdminDashboard() {
   // State for wallet stats
   const [walletStats, setWalletStats] = useState(null);
   const [walletLoading, setWalletLoading] = useState(false);
+
+  // State for blockchain admin management
+  const [adminAddressForm, setAdminAddressForm] = useState({ address: '' });
+  const [adminAddressLoading, setAdminAddressLoading] = useState(false);
+  const [adminAddressMessage, setAdminAddressMessage] = useState(null);
 
   // State for viewing certificates
   const [selectedClubAdmin, setSelectedClubAdmin] = useState(null);
@@ -112,7 +117,7 @@ export default function AdminDashboard() {
     try {
       const response = await axiosClient.post('/api/web2admin/register/club-admin', clubAdminForm);
       setClubAdminMessage({ type: 'success', text: 'Club admin created successfully!' });
-      setClubAdminForm({ username: '', password: '' });
+      setClubAdminForm({ name: '', username: '', password: '' });
     } catch (error) {
       setClubAdminMessage({ 
         type: 'error', 
@@ -131,7 +136,7 @@ export default function AdminDashboard() {
     try {
       const response = await axiosClient.post('/api/web2admin/register/admin', adminForm);
       setAdminMessage({ type: 'success', text: 'Admin created successfully!' });
-      setAdminForm({ username: '', password: '' });
+      setAdminForm({ name: '', username: '', password: '' });
       // Refresh admin list if we're on that section
       if (activeSection === 'manage-admins') {
         loadAdmins();
@@ -212,15 +217,11 @@ export default function AdminDashboard() {
   const loadWalletStats = async () => {
     setWalletLoading(true);
     try {
-      // TODO: This endpoint does not exist in backend yet - use web3admin endpoints instead
-      // const response = await axiosClient.get('/api/wallet/stats');
-      // setWalletStats(response.data.data);
-      
-      // For now, fetch deployment info from web3admin
-      const response = await axiosClient.get('/api/web3admin/get-deployment-info');
-      setWalletStats(response.data.data || {});
+      const response = await axiosClient.get('/api/web2admin/get-stats');
+      setWalletStats(response.data.data || null);
     } catch (error) {
       console.error('Failed to load wallet stats:', error);
+      setWalletStats(null);
     } finally {
       setWalletLoading(false);
     }
@@ -231,11 +232,49 @@ export default function AdminDashboard() {
     alert('Copied to clipboard!');
   };
 
+  const addAdminAddress = async (e) => {
+    e.preventDefault();
+    setAdminAddressLoading(true);
+    setAdminAddressMessage(null);
+
+    try {
+      const response = await axiosClient.post('/api/web3admin/add-admin-address', {
+        address: adminAddressForm.address
+      });
+      setAdminAddressMessage({ 
+        type: 'success', 
+        text: `Admin address added successfully! TX: ${response.data.data.transactionHash}` 
+      });
+      setAdminAddressForm({ address: '' });
+    } catch (error) {
+      setAdminAddressMessage({ 
+        type: 'error', 
+        text: error.response?.data?.message || 'Failed to add admin address' 
+      });
+    } finally {
+      setAdminAddressLoading(false);
+    }
+  };
+
+  const removeAdminAddress = async (address) => {
+    if (!confirm(`Are you sure you want to remove admin address: ${address}?`)) return;
+
+    try {
+      const response = await axiosClient.post('/api/web3admin/remove-admin', {
+        address: address
+      });
+      alert(`Admin address removed successfully! TX: ${response.data.data.transactionHash}`);
+    } catch (error) {
+      alert(error.response?.data?.message || 'Failed to remove admin address');
+    }
+  };
+
   const menuItems = [
     { id: 'create-club-admin', label: 'Create Club Admin credentials', icon: UserPlus },
     { id: 'manage-club-admins', label: 'Manage Club Admins', icon: Users },
     { id: 'manage-admins', label: 'Add/Remove Admins', icon: Shield },
-    { id: 'wallet-stats', label: 'Wallet & Contract', icon: Wallet },
+    { id: 'blockchain-admins', label: 'Blockchain Admin Addresses', icon: Wallet },
+    { id: 'wallet-stats', label: 'Wallet & Contract Stats', icon: FileText },
   ];
 
   return (
@@ -304,6 +343,18 @@ export default function AdminDashboard() {
                 </CardHeader>
                 <CardContent>
                   <form onSubmit={createClubAdmin} className="space-y-4 max-w-md">
+                    <div>
+                      <label className="text-sm font-medium text-foreground mb-2 block">
+                        Name
+                      </label>
+                      <Input
+                        type="text"
+                        placeholder="Enter full name"
+                        value={clubAdminForm.name}
+                        onChange={(e) => setClubAdminForm({ ...clubAdminForm, name: e.target.value })}
+                        required
+                      />
+                    </div>
                     <div>
                       <label className="text-sm font-medium text-foreground mb-2 block">
                         Username
@@ -377,7 +428,8 @@ export default function AdminDashboard() {
                             className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-accent transition-colors"
                           >
                             <div>
-                              <p className="font-medium text-foreground">{clubAdmin.username}</p>
+                              <p className="font-medium text-foreground">{clubAdmin.name || clubAdmin.username}</p>
+                              <p className="text-sm text-muted-foreground">Username: {clubAdmin.username}</p>
                               <p className="text-sm text-muted-foreground">
                                 Created: {new Date(clubAdmin.created_at).toLocaleDateString()}
                               </p>
@@ -472,6 +524,18 @@ export default function AdminDashboard() {
                     <form onSubmit={createAdmin} className="space-y-4 max-w-md">
                       <div>
                         <label className="text-sm font-medium text-foreground mb-2 block">
+                          Name
+                        </label>
+                        <Input
+                          type="text"
+                          placeholder="Enter full name"
+                          value={adminForm.name}
+                          onChange={(e) => setAdminForm({ ...adminForm, name: e.target.value })}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-foreground mb-2 block">
                           Username
                         </label>
                         <Input
@@ -539,7 +603,8 @@ export default function AdminDashboard() {
                             className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-accent transition-colors"
                           >
                             <div>
-                              <p className="font-medium text-foreground">{admin.username}</p>
+                              <p className="font-medium text-foreground">{admin.name || admin.username}</p>
+                              <p className="text-sm text-muted-foreground">Username: {admin.username}</p>
                               <p className="text-sm text-muted-foreground">
                                 Created: {new Date(admin.created_at).toLocaleDateString()}
                               </p>
@@ -560,6 +625,104 @@ export default function AdminDashboard() {
                   </CardContent>
                 </Card>
               </>
+            )}
+
+            {/* Blockchain Admin Addresses Section */}
+            {activeSection === 'blockchain-admins' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Wallet className="h-5 w-5" />
+                    Manage Blockchain Admin Addresses
+                  </CardTitle>
+                  <CardDescription>
+                    Add or remove wallet addresses that can perform admin operations on the smart contract
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Add Admin Address Form */}
+                  <div>
+                    <h3 className="text-lg font-semibold mb-4">Add Admin Address</h3>
+                    <form onSubmit={addAdminAddress} className="space-y-4 max-w-2xl">
+                      <div>
+                        <label className="text-sm font-medium text-foreground mb-2 block">
+                          Wallet Address
+                        </label>
+                        <Input
+                          type="text"
+                          placeholder="0x..."
+                          value={adminAddressForm.address}
+                          onChange={(e) => setAdminAddressForm({ address: e.target.value })}
+                          required
+                          className="font-mono"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Enter the Ethereum wallet address to grant admin privileges
+                        </p>
+                      </div>
+
+                      {adminAddressMessage && (
+                        <Alert variant={adminAddressMessage.type === 'error' ? 'destructive' : 'default'}>
+                          {adminAddressMessage.type === 'success' ? (
+                            <CheckCircle className="h-4 w-4" />
+                          ) : (
+                            <XCircle className="h-4 w-4" />
+                          )}
+                          <AlertDescription className="break-all">
+                            {adminAddressMessage.text}
+                          </AlertDescription>
+                        </Alert>
+                      )}
+
+                      <Button type="submit" disabled={adminAddressLoading}>
+                        {adminAddressLoading ? 'Adding...' : 'Add Admin Address'}
+                      </Button>
+                    </form>
+                  </div>
+
+                  <Separator />
+
+                  {/* Current Wallet Info */}
+                  <div>
+                    <h3 className="text-lg font-semibold mb-4">Current Wallet Information</h3>
+                    {walletStats ? (
+                      <div className="space-y-2 p-4 bg-muted rounded-lg">
+                        <div>
+                          <label className="text-sm text-muted-foreground">Your Wallet Address</label>
+                          <div className="flex items-center gap-2 mt-1">
+                            <code className="text-sm font-mono">{walletStats.wallet?.address}</code>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => copyToClipboard(walletStats.wallet?.address)}
+                            >
+                              <Copy className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-sm text-muted-foreground">Balance</label>
+                          <p className="text-lg font-semibold">
+                            {walletStats.wallet?.balanceInEth ? parseFloat(walletStats.wallet.balanceInEth).toFixed(4) : '0.0000'} ETH
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <Button onClick={loadWalletStats} variant="outline">
+                        Load Wallet Info
+                      </Button>
+                    )}
+                  </div>
+
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      <strong>Important:</strong> Only add trusted wallet addresses. Admin addresses can issue and manage certificates on the blockchain.
+                      To remove an admin address, you&apos;ll need to use the contract directly or contact the system administrator.
+                    </AlertDescription>
+                  </Alert>
+                </CardContent>
+              </Card>
             )}
 
             {/* Wallet & Contract Stats Section */}
