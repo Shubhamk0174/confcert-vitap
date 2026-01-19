@@ -5,19 +5,20 @@ import { createAnonClient } from "../../db/supabaseClient.js";
 import { supabaseServer } from "../../db/supabaseServer.js";
 
 /**
- * Register Member with Email Confirmation
+ * Register Student with Email Confirmation
  * Requires full VIT AP email and sends confirmation email
  */
-export const registerMember = async (req, res) => {
+export const registerStudent = async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { email, password } = req.body;
+    // const {}
 
     // Basic validation
-    if (!username || !password) {
+    if (!email || !password) {
       return res
         .status(HttpStatusCode.BAD_REQUEST)
         .json(
-          new ApiError(HttpStatusCode.BAD_REQUEST, "Missing required fields: username and password")
+          new ApiError(HttpStatusCode.BAD_REQUEST, "Missing required fields: email and password")
         );
     }
 
@@ -31,19 +32,19 @@ export const registerMember = async (req, res) => {
     }
 
     // Validate it's a VIT AP email
-    if (!username.endsWith("@vitapstudent.ac.in")) {
+    if (!email.endsWith("@vitapstudent.ac.in")) {
       return res
         .status(HttpStatusCode.BAD_REQUEST)
         .json(
-          new ApiError(HttpStatusCode.BAD_REQUEST, "Only VIT AP student emails are allowed for member registration")
+          new ApiError(HttpStatusCode.BAD_REQUEST, "Only VIT AP student emails are allowed for student registration")
         );
     }
 
-    // Check if member already exists by email (members are separate from admins)
+    // Check if student already exists by email (students are separate from admins)
     const { data: existingUser, error: userQueryError } = await supabaseServer
       .from("auth")
-      .select("id, username, email, roles, auth_id")
-      .eq("email", username)
+      .select("id, username, email, role, auth_id")
+      .eq("email", email)
       .single();
 
     if (userQueryError && userQueryError.code !== "PGRST116") {
@@ -55,7 +56,7 @@ export const registerMember = async (req, res) => {
         );
     }
 
-    // If member already exists with this email, return conflict
+    // If student already exists with this email, return conflict
     if (existingUser) {
       return res
         .status(HttpStatusCode.CONFLICT)
@@ -66,23 +67,23 @@ export const registerMember = async (req, res) => {
 
     // Check if email already exists in Supabase auth but not in our database
     const { data: { users }, error: listError } = await supabaseServer.auth.admin.listUsers();
-    const existingAuthUser = users?.find(u => u.email === username);
+    const existingAuthUser = users?.find(u => u.email === email);
     
     if (existingAuthUser) {
-      console.log("Found existing Supabase auth user for member, deleting:", username);
+      console.log("Found existing Supabase auth user for student, deleting:", email);
       // Delete the existing auth user to allow re-registration
       await supabaseServer.auth.admin.deleteUser(existingAuthUser.id);
     }
 
-    // User doesn't exist - create new member with email verification
+    // User doesn't exist - create new student with email verification
     // Members use signUp (requires email confirmation) instead of createUser
     const anonClient = createAnonClient();
     const { data: authData, error: authError } = await anonClient.auth.signUp({
-      email: username, // Use full email for members
+      email: email, // Use full email for students
       password,
       options: {
         data: { 
-          roles: ["member"]
+          role: "student"
         }
       }
     });
@@ -102,15 +103,18 @@ export const registerMember = async (req, res) => {
         );
     }
 
-    // Insert user into auth table with roles as JSONB array
-    // For members: store email, username is NULL
+    // Generate random username for student
+    const username = `student_${Math.random().toString(36).substring(2, 8)}_${Date.now().toString().slice(-4)}`;
+
+    // Insert user into auth table with role
     const { error: insertError } = await supabaseServer
       .from("auth")
       .insert({
         auth_id: authData.user.id,
-        username: null, // Members login with email, username is idle
-        email: username, // Store full email for members
-        roles: ["member"]
+        name: email.split("@")[0], // Use email prefix as display name
+        username: username, // Randomly generated username for students
+        email: email, // Store full email for students
+        role: "student"
       });
 
     if (insertError) {
@@ -137,9 +141,9 @@ export const registerMember = async (req, res) => {
         message: "Registration successful. Please check your email to verify your account before logging in.",
         user: {
           id: authData.user.id,
-          username: null, // Members don't have username stored
-          email: username,
-          roles: ["member"],
+          username: username,
+          email: email,
+          role: "student",
           emailVerified: false
         }
       })

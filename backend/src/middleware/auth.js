@@ -1,6 +1,6 @@
-import { HttpStatusCode } from "../../utils/httpStatusCode.js";
-import { ApiError } from "../../utils/ApiError.js";
-import { supabaseServer } from "../../db/supabaseServer.js";
+import { ApiError } from "../utils/ApiError.js";
+import { HttpStatusCode } from "../utils/httpStatusCode.js";
+import { supabaseServer } from "../db/supabaseServer.js";
 
 /**
  * Middleware to verify if user is authenticated
@@ -23,6 +23,7 @@ export const isAuthenticated = async (req, res, next) => {
 
     // Verify token with Supabase
     const { data: { user }, error } = await supabaseServer.auth.getUser(token);
+    console.log("user id",user.id);
 
     if (error || !user) {
       return res
@@ -33,14 +34,13 @@ export const isAuthenticated = async (req, res, next) => {
     }
 
     // Get user data from auth table
-    // Members have email (username is NULL), Admins have username (email is NULL)
     let userData;
     let dbError;
 
     // Try to find by auth_id first (most reliable)
     const result = await supabaseServer
       .from("auth")
-      .select("id, username, email, roles, auth_id")
+      .select("id, name ,username, email, role, auth_id")
       .eq("auth_id", user.id)
       .single();
     
@@ -56,12 +56,12 @@ export const isAuthenticated = async (req, res, next) => {
     }
 
     // Attach user info to request object
-    // Members have email (username is NULL), Admins have username (email is NULL)
     req.user = {
-      id: userData.auth_id || user.id, // Use auth_id if available, otherwise use Supabase user id
+      id: userData.auth_id , // Use auth_id if available, otherwise use Supabase user id
       username: userData.username || null, // For admin/club.admin
-      email: userData.email || null, // For members
-      roles: userData.roles || [], // Array of roles
+      name: userData.name,
+      email: userData.email || null, // For students
+      role: userData.role || null, // Single role text
       dbId: userData.id // The auto-increment id from auth table
     };
 
@@ -89,8 +89,8 @@ export const isAdmin = async (req, res, next) => {
         );
     }
 
-    const userRoles = req.user.roles || [];
-    if (!userRoles.includes("admin")) {
+    const userRole = req.user.role;
+    if (userRole !== "admin") {
       return res
         .status(HttpStatusCode.FORBIDDEN)
         .json(
@@ -122,8 +122,8 @@ export const isClubAdmin = async (req, res, next) => {
         );
     }
 
-    const userRoles = req.user.roles || [];
-    if (!userRoles.includes("club.admin")) {
+    const userRole = req.user.role;
+    if (userRole !== "club.admin") {
       return res
         .status(HttpStatusCode.FORBIDDEN)
         .json(
@@ -143,9 +143,9 @@ export const isClubAdmin = async (req, res, next) => {
 };
 
 /**
- * Middleware to check if user has member role
+ * Middleware to check if user has student role
  */
-export const isMember = async (req, res, next) => {
+export const isStudent = async (req, res, next) => {
   try {
     if (!req.user) {
       return res
@@ -155,18 +155,18 @@ export const isMember = async (req, res, next) => {
         );
     }
 
-    const userRoles = req.user.roles || [];
-    if (!userRoles.includes("member")) {
+    const userRole = req.user.role;
+    if (userRole !== "student") {
       return res
         .status(HttpStatusCode.FORBIDDEN)
         .json(
-          new ApiError(HttpStatusCode.FORBIDDEN, "Access denied. Member role required")
+          new ApiError(HttpStatusCode.FORBIDDEN, "Access denied. Student role required")
         );
     }
 
     next();
   } catch (error) {
-    console.error("Member middleware error:", error);
+    console.error("Student middleware error:", error);
     return res
       .status(HttpStatusCode.INTERNAL_SERVER_ERROR)
       .json(
@@ -188,8 +188,8 @@ export const isAdminOrClubAdmin = async (req, res, next) => {
         );
     }
 
-    const userRoles = req.user.roles || [];
-    if (!userRoles.includes("admin") && !userRoles.includes("club.admin")) {
+    const userRole = req.user.role;
+    if (userRole !== "admin" && userRole !== "club.admin") {
       return res
         .status(HttpStatusCode.FORBIDDEN)
         .json(
@@ -223,8 +223,8 @@ export const hasAnyRole = (allowedRoles) => {
           );
       }
 
-      const userRoles = req.user.roles || [];
-      const hasRole = allowedRoles.some(role => userRoles.includes(role));
+      const userRole = req.user.role;
+      const hasRole = allowedRoles.includes(userRole);
       
       if (!hasRole) {
         return res

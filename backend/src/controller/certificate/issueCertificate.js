@@ -2,78 +2,140 @@ import { HttpStatusCode } from "../../utils/httpStatusCode.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 import { uploadToIPFS } from "../../services/uploadToIpfs.js";
-import { issueCertificateOnBlockchain, bulkIssueCertificatesOnBlockchain } from "../../services/blockchain.service.js";
-import { sendCertificateEmailFunction, sendBulkCertificateEmails } from "../../services/sendCertificateEmail.js";
+import {
+  issueCertificateOnBlockchain,
+  bulkIssueCertificatesOnBlockchain,
+} from "../../services/blockchain.service.js";
+import {
+  sendCertificateEmailFunction,
+  sendBulkCertificateEmails,
+} from "../../services/sendCertificateEmail.js";
 import { estimateBulkEmailTime } from "../../config/email.config.js";
 
-/**
- * Unified endpoint to issue a certificate
- * Handles: IPFS upload, blockchain issuance, and email sending
- * This is the main endpoint that frontend will call
- */
-export const issueCertificateFull = async (req, res) => {
+export const issueCertificate = async (req, res) => {
   try {
     // Validate file is present
     if (!req.file) {
       return res
         .status(HttpStatusCode.BAD_REQUEST)
-        .json(new ApiError(HttpStatusCode.BAD_REQUEST, "No certificate file provided"));
+        .json(
+          new ApiError(
+            HttpStatusCode.BAD_REQUEST,
+            "No certificate file provided",
+          ),
+        );
     }
 
-    // Extract request data
-    const { studentName, email, sendEmail } = req.body;
+    
+    const { role: issuerRole, name } = req.user;
+    let issuerUsername;
+
+    if (issuerRole === "admin") {
+      issuerUsername = "VIT-AP University";
+    } else {
+      issuerUsername = name;
+    }
+
+    const { studentName, regNo, email, sendEmail } = req.body;
 
     // Validate required fields
     if (!studentName || !studentName.trim()) {
       return res
         .status(HttpStatusCode.BAD_REQUEST)
-        .json(new ApiError(HttpStatusCode.BAD_REQUEST, "Student name is required"));
+        .json(
+          new ApiError(HttpStatusCode.BAD_REQUEST, "Student name is required"),
+        );
+    }
+
+    if (!regNo || !regNo.trim()) {
+      return res
+        .status(HttpStatusCode.BAD_REQUEST)
+        .json(
+          new ApiError(
+            HttpStatusCode.BAD_REQUEST,
+            "Registration number is required",
+          ),
+        );
+    }
+
+    if (!issuerUsername || !issuerUsername.trim()) {
+      return res
+        .status(HttpStatusCode.BAD_REQUEST)
+        .json(
+          new ApiError(
+            HttpStatusCode.BAD_REQUEST,
+            "Issuer username is required",
+          ),
+        );
     }
 
     // Parse sendEmail flag (it comes as string from form data)
-    const shouldSendEmail = sendEmail === 'true' || sendEmail === true;
+    const shouldSendEmail = sendEmail === "true" || sendEmail === true;
 
     // Validate email if sending email is enabled
     if (shouldSendEmail && (!email || !email.trim())) {
       return res
         .status(HttpStatusCode.BAD_REQUEST)
-        .json(new ApiError(HttpStatusCode.BAD_REQUEST, "Email is required when sendEmail is enabled"));
+        .json(
+          new ApiError(
+            HttpStatusCode.BAD_REQUEST,
+            "Email is required when sendEmail is enabled",
+          ),
+        );
     }
 
-    console.log('📋 Processing certificate issuance for:', studentName);
+    console.log("📋 Processing certificate issuance for:", studentName);
 
     // Step 1: Upload to IPFS
-    console.log('📤 Step 1/3: Uploading to IPFS...');
+    console.log("📤 Step 1/3: Uploading to IPFS...");
     const { buffer, originalname, mimetype } = req.file;
     const ipfsResult = await uploadToIPFS(buffer, originalname, mimetype);
 
     if (!ipfsResult.success) {
       return res
         .status(HttpStatusCode.INTERNAL_SERVER_ERROR)
-        .json(new ApiError(HttpStatusCode.INTERNAL_SERVER_ERROR, `IPFS upload failed: ${ipfsResult.error}`));
+        .json(
+          new ApiError(
+            HttpStatusCode.INTERNAL_SERVER_ERROR,
+            `IPFS upload failed: ${ipfsResult.error}`,
+          ),
+        );
     }
 
     const ipfsHash = ipfsResult.ipfsHash;
-    console.log('✅ IPFS upload successful. Hash:', ipfsHash);
+    console.log("✅ IPFS upload successful. Hash:", ipfsHash);
 
     // Step 2: Issue on Blockchain
-    console.log('⛓️ Step 2/3: Issuing certificate on blockchain...');
-    const blockchainResult = await issueCertificateOnBlockchain(studentName, ipfsHash);
+    console.log("⛓️ Step 2/3: Issuing certificate on blockchain...");
+    const blockchainResult = await issueCertificateOnBlockchain(
+      studentName,
+      regNo,
+      ipfsHash,
+      issuerUsername,
+    );
 
     if (!blockchainResult.success) {
       return res
         .status(HttpStatusCode.INTERNAL_SERVER_ERROR)
-        .json(new ApiError(HttpStatusCode.INTERNAL_SERVER_ERROR, `Blockchain issuance failed: ${blockchainResult.error}`));
+        .json(
+          new ApiError(
+            HttpStatusCode.INTERNAL_SERVER_ERROR,
+            `Blockchain issuance failed: ${blockchainResult.error}`,
+          ),
+        );
     }
 
     const { certificateId, transactionHash, issuerAddress } = blockchainResult;
-    console.log('✅ Blockchain issuance successful. Certificate ID:', certificateId);
+    console.log(
+      "✅ Blockchain issuance successful. Certificate ID:",
+      certificateId,
+    );
 
     // Step 3: Send Email (if enabled)
     let emailSent = false;
     if (shouldSendEmail && email) {
-      console.log('📧 Step 3/3: Sending email to:', email);
-      
+      console.log("📧 Step 3/3: Sending email to:", email);
+
       const emailResult = await sendCertificateEmailFunction({
         to: email,
         studentName,
@@ -85,13 +147,13 @@ export const issueCertificateFull = async (req, res) => {
 
       if (emailResult.success) {
         emailSent = true;
-        console.log('✅ Email sent successfully');
+        console.log("✅ Email sent successfully");
       } else {
-        console.warn('⚠️ Email sending failed:', emailResult.error);
+        console.warn("⚠️ Email sending failed:", emailResult.error);
         // Don't fail the entire request if email fails
       }
     } else {
-      console.log('📧 Step 3/3: Email sending skipped');
+      console.log("📧 Step 3/3: Email sending skipped");
     }
 
     // Return success response
@@ -107,10 +169,9 @@ export const issueCertificateFull = async (req, res) => {
           emailSent,
           pinataUrl: ipfsResult.pinataUrl,
         },
-        "Certificate issued successfully"
-      )
+        "Certificate issued successfully",
+      ),
     );
-
   } catch (error) {
     console.error("❌ Certificate issuance error:", error);
     return res
@@ -118,109 +179,195 @@ export const issueCertificateFull = async (req, res) => {
       .json(
         new ApiError(
           HttpStatusCode.INTERNAL_SERVER_ERROR,
-          error.message || "Failed to issue certificate"
-        )
+          error.message || "Failed to issue certificate",
+        ),
       );
   }
 };
 
-/**
- * Bulk certificate issuance endpoint
- * Handles: Multiple IPFS uploads, bulk blockchain issuance, and bulk email sending
- */
-export const bulkIssueCertificatesFull = async (req, res) => {
+export const bulkIssueCertificates = async (req, res) => {
   try {
     // Validate files are present
     if (!req.files || req.files.length === 0) {
       return res
         .status(HttpStatusCode.BAD_REQUEST)
-        .json(new ApiError(HttpStatusCode.BAD_REQUEST, "No certificate files provided"));
+        .json(
+          new ApiError(
+            HttpStatusCode.BAD_REQUEST,
+            "No certificate files provided",
+          ),
+        );
     }
 
     // Extract request data
-    const { studentNames, emails, sendEmail } = req.body;
+    const { role: issuerRole, name } = req.user;
+    let issuerUsername;
 
-    // Parse studentNames and emails (they come as JSON strings from form data)
-    let parsedStudentNames, parsedEmails;
+    if (issuerRole === "admin") {
+      issuerUsername = "VIT-AP University";
+    } else {
+      issuerUsername = name;
+    }
+
+    const { studentNames, regNos, emails, sendEmail } = req.body;
+
+    // Parse studentNames, regNos, and emails (they come as JSON strings from form data)
+    let parsedStudentNames, parsedRegNos, parsedEmails;
     try {
-      parsedStudentNames = typeof studentNames === 'string' ? JSON.parse(studentNames) : studentNames;
-      parsedEmails = typeof emails === 'string' ? JSON.parse(emails) : emails;
+      parsedStudentNames =
+        typeof studentNames === "string"
+          ? JSON.parse(studentNames)
+          : studentNames;
+      parsedRegNos = typeof regNos === "string" ? JSON.parse(regNos) : regNos;
+      parsedEmails = typeof emails === "string" ? JSON.parse(emails) : emails;
     } catch (e) {
       return res
         .status(HttpStatusCode.BAD_REQUEST)
-        .json(new ApiError(HttpStatusCode.BAD_REQUEST, "Invalid student names or emails format"));
+        .json(
+          new ApiError(
+            HttpStatusCode.BAD_REQUEST,
+            "Invalid student names, reg nos, or emails format",
+          ),
+        );
     }
 
     // Validate arrays
     if (!Array.isArray(parsedStudentNames) || parsedStudentNames.length === 0) {
       return res
         .status(HttpStatusCode.BAD_REQUEST)
-        .json(new ApiError(HttpStatusCode.BAD_REQUEST, "Student names array is required"));
+        .json(
+          new ApiError(
+            HttpStatusCode.BAD_REQUEST,
+            "Student names array is required",
+          ),
+        );
+    }
+
+    if (!Array.isArray(parsedRegNos) || parsedRegNos.length === 0) {
+      return res
+        .status(HttpStatusCode.BAD_REQUEST)
+        .json(
+          new ApiError(
+            HttpStatusCode.BAD_REQUEST,
+            "Registration numbers array is required",
+          ),
+        );
+    }
+
+    if (!issuerUsername || !issuerUsername.trim()) {
+      return res
+        .status(HttpStatusCode.BAD_REQUEST)
+        .json(
+          new ApiError(
+            HttpStatusCode.BAD_REQUEST,
+            "Issuer username is required",
+          ),
+        );
     }
 
     if (parsedStudentNames.length !== req.files.length) {
       return res
         .status(HttpStatusCode.BAD_REQUEST)
-        .json(new ApiError(HttpStatusCode.BAD_REQUEST, "Number of student names must match number of files"));
+        .json(
+          new ApiError(
+            HttpStatusCode.BAD_REQUEST,
+            "Number of student names must match number of files",
+          ),
+        );
     }
 
-    const shouldSendEmail = sendEmail === 'true' || sendEmail === true;
+    if (parsedStudentNames.length !== parsedRegNos.length) {
+      return res
+        .status(HttpStatusCode.BAD_REQUEST)
+        .json(
+          new ApiError(
+            HttpStatusCode.BAD_REQUEST,
+            "Number of reg nos must match number of student names",
+          ),
+        );
+    }
+
+    const shouldSendEmail = sendEmail === "true" || sendEmail === true;
 
     if (shouldSendEmail && parsedStudentNames.length !== parsedEmails.length) {
       return res
         .status(HttpStatusCode.BAD_REQUEST)
-        .json(new ApiError(HttpStatusCode.BAD_REQUEST, "Number of emails must match number of student names"));
+        .json(
+          new ApiError(
+            HttpStatusCode.BAD_REQUEST,
+            "Number of emails must match number of student names",
+          ),
+        );
     }
 
-    console.log(`📋 Processing bulk issuance for ${parsedStudentNames.length} certificates`);
+    console.log(
+      `📋 Processing bulk issuance for ${parsedStudentNames.length} certificates`,
+    );
 
     // Step 1: Upload all files to IPFS
-    console.log('📤 Step 1/3: Uploading files to IPFS...');
+    console.log("📤 Step 1/3: Uploading files to IPFS...");
     const ipfsHashes = [];
     const ipfsResults = [];
 
     for (let i = 0; i < req.files.length; i++) {
       const file = req.files[i];
       const studentName = parsedStudentNames[i];
-      
+
       console.log(`  Uploading ${i + 1}/${req.files.length}: ${studentName}`);
-      
-      const ipfsResult = await uploadToIPFS(file.buffer, file.originalname, file.mimetype);
-      
+
+      const ipfsResult = await uploadToIPFS(
+        file.buffer,
+        file.originalname,
+        file.mimetype,
+      );
+
       if (!ipfsResult.success) {
         return res
           .status(HttpStatusCode.INTERNAL_SERVER_ERROR)
-          .json(new ApiError(
-            HttpStatusCode.INTERNAL_SERVER_ERROR, 
-            `IPFS upload failed for ${studentName}: ${ipfsResult.error}`
-          ));
+          .json(
+            new ApiError(
+              HttpStatusCode.INTERNAL_SERVER_ERROR,
+              `IPFS upload failed for ${studentName}: ${ipfsResult.error}`,
+            ),
+          );
       }
-      
+
       ipfsHashes.push(ipfsResult.ipfsHash);
       ipfsResults.push(ipfsResult);
     }
 
-    console.log('✅ All files uploaded to IPFS successfully');
+    console.log("✅ All files uploaded to IPFS successfully");
 
     // Step 2: Issue all certificates on blockchain in bulk
-    console.log('⛓️ Step 2/3: Issuing certificates on blockchain in bulk...');
-    const blockchainResult = await bulkIssueCertificatesOnBlockchain(parsedStudentNames, ipfsHashes);
+    console.log("⛓️ Step 2/3: Issuing certificates on blockchain in bulk...");
+    const blockchainResult = await bulkIssueCertificatesOnBlockchain(
+      parsedStudentNames,
+      parsedRegNos,
+      ipfsHashes,
+      issuerUsername,
+    );
 
     if (!blockchainResult.success) {
       return res
         .status(HttpStatusCode.INTERNAL_SERVER_ERROR)
-        .json(new ApiError(
-          HttpStatusCode.INTERNAL_SERVER_ERROR, 
-          `Bulk blockchain issuance failed: ${blockchainResult.error}`
-        ));
+        .json(
+          new ApiError(
+            HttpStatusCode.INTERNAL_SERVER_ERROR,
+            `Bulk blockchain issuance failed: ${blockchainResult.error}`,
+          ),
+        );
     }
 
     const { certificateIds, transactionHash, issuerAddress } = blockchainResult;
-    console.log('✅ Bulk blockchain issuance successful. Transaction:', transactionHash);
+    console.log(
+      "✅ Bulk blockchain issuance successful. Transaction:",
+      transactionHash,
+    );
 
     // Prepare certificates data for email sending
     const certificates = parsedStudentNames.map((name, i) => ({
       studentName: name,
+      regNo: parsedRegNos[i],
       certificateId: certificateIds[i],
       ipfsHash: ipfsHashes[i],
       pinataUrl: ipfsResults[i].pinataUrl,
@@ -230,18 +377,18 @@ export const bulkIssueCertificatesFull = async (req, res) => {
     // Step 3: Send emails in bulk with batching and rate limiting (if enabled)
     let bulkEmailResult = null;
     if (shouldSendEmail && parsedEmails) {
-      console.log('📧 Step 3/3: Sending emails in bulk with batching...');
-      
+      console.log("📧 Step 3/3: Sending emails in bulk with batching...");
+
       // Show estimated time
       const estimate = estimateBulkEmailTime(certificates.length);
       console.log(`⏱️  Estimated completion time: ${estimate.estimatedTime}`);
-      
+
       bulkEmailResult = await sendBulkCertificateEmails(certificates, {
         // Configuration will use optimal values from email.config.js
         issuerAddress,
         transactionHash,
       });
-      
+
       // Update certificates with email status
       certificates.forEach((cert, i) => {
         const emailResult = bulkEmailResult.results[i];
@@ -250,11 +397,13 @@ export const bulkIssueCertificatesFull = async (req, res) => {
           cert.emailError = emailResult.error;
         }
       });
-      
-      console.log(`✅ Bulk email send complete: ${bulkEmailResult.successCount}/${bulkEmailResult.total} sent`);
+
+      console.log(
+        `✅ Bulk email send complete: ${bulkEmailResult.successCount}/${bulkEmailResult.total} sent`,
+      );
     } else {
-      console.log('📧 Step 3/3: Email sending skipped');
-      certificates.forEach(cert => {
+      console.log("📧 Step 3/3: Email sending skipped");
+      certificates.forEach((cert) => {
         cert.emailSent = false;
       });
     }
@@ -268,16 +417,17 @@ export const bulkIssueCertificatesFull = async (req, res) => {
           transactionHash,
           issuerAddress,
           certificates,
-          emailStats: bulkEmailResult ? {
-            total: bulkEmailResult.total,
-            sent: bulkEmailResult.successCount,
-            failed: bulkEmailResult.failureCount
-          } : null,
+          emailStats: bulkEmailResult
+            ? {
+                total: bulkEmailResult.total,
+                sent: bulkEmailResult.successCount,
+                failed: bulkEmailResult.failureCount,
+              }
+            : null,
         },
-        `Successfully issued ${certificates.length} certificates`
-      )
+        `Successfully issued ${certificates.length} certificates`,
+      ),
     );
-
   } catch (error) {
     console.error("❌ Bulk certificate issuance error:", error);
     return res
@@ -285,86 +435,8 @@ export const bulkIssueCertificatesFull = async (req, res) => {
       .json(
         new ApiError(
           HttpStatusCode.INTERNAL_SERVER_ERROR,
-          error.message || "Failed to issue certificates in bulk"
-        )
-      );
-  }
-};
-
-/**
- * Get certificate details from blockchain
- */
-export const getCertificate = async (req, res) => {
-  try {
-    const { certificateId } = req.params;
-
-    if (!certificateId) {
-      return res
-        .status(HttpStatusCode.BAD_REQUEST)
-        .json(new ApiError(HttpStatusCode.BAD_REQUEST, "Certificate ID is required"));
-    }
-
-    const { getCertificateFromBlockchain } = await import("../../services/blockchain.service.js");
-    const result = await getCertificateFromBlockchain(parseInt(certificateId));
-
-    if (!result.success) {
-      return res
-        .status(HttpStatusCode.NOT_FOUND)
-        .json(new ApiError(HttpStatusCode.NOT_FOUND, result.error || "Certificate not found"));
-    }
-
-    return res.status(HttpStatusCode.OK).json(
-      new ApiResponse(HttpStatusCode.OK, result.certificate, "Certificate retrieved successfully")
-    );
-
-  } catch (error) {
-    console.error("Get certificate error:", error);
-    return res
-      .status(HttpStatusCode.INTERNAL_SERVER_ERROR)
-      .json(
-        new ApiError(
-          HttpStatusCode.INTERNAL_SERVER_ERROR,
-          error.message || "Failed to retrieve certificate"
-        )
-      );
-  }
-};
-
-/**
- * Verify certificate exists on blockchain
- */
-export const verifyCertificate = async (req, res) => {
-  try {
-    const { certificateId } = req.params;
-
-    if (!certificateId) {
-      return res
-        .status(HttpStatusCode.BAD_REQUEST)
-        .json(new ApiError(HttpStatusCode.BAD_REQUEST, "Certificate ID is required"));
-    }
-
-    const { verifyCertificateOnBlockchain } = await import("../../services/blockchain.service.js");
-    const result = await verifyCertificateOnBlockchain(parseInt(certificateId));
-
-    if (!result.success) {
-      return res
-        .status(HttpStatusCode.INTERNAL_SERVER_ERROR)
-        .json(new ApiError(HttpStatusCode.INTERNAL_SERVER_ERROR, result.error || "Verification failed"));
-    }
-
-    return res.status(HttpStatusCode.OK).json(
-      new ApiResponse(HttpStatusCode.OK, { exists: result.exists }, "Certificate verified")
-    );
-
-  } catch (error) {
-    console.error("Verify certificate error:", error);
-    return res
-      .status(HttpStatusCode.INTERNAL_SERVER_ERROR)
-      .json(
-        new ApiError(
-          HttpStatusCode.INTERNAL_SERVER_ERROR,
-          error.message || "Failed to verify certificate"
-        )
+          error.message || "Failed to issue certificates in bulk",
+        ),
       );
   }
 };

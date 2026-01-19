@@ -3,12 +3,15 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import dynamic from 'next/dynamic';
-import { Shield, CheckCircle, Lock, Zap, ArrowRight, TrendingUp, Badge } from 'lucide-react';
+import { Shield, CheckCircle, Lock, Zap, ArrowRight, TrendingUp } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import BackgroundPaths from '../components/background-paths';
 import Link from 'next/link';
 import { getCurrentCounter } from '../lib/web3';
+import { Badge } from '@/components/ui/badge';
+import { useAuth } from '@/contexts/AuthContext';
+useAuth
 
 // Dynamically import Lottie to avoid SSR issues
 const Lottie = dynamic(() => import('lottie-react'), { ssr: false });
@@ -16,9 +19,15 @@ const Lottie = dynamic(() => import('lottie-react'), { ssr: false });
 export default function Home() {
   // Import the animation
   const certificateAnimation = require('../public/animations/Certificate.json');
+  const {session} = useAuth()
 
   // State for certificate count from blockchain
   const [certificatesIssued, setCertificatesIssued] = useState('Loading...');
+
+  useEffect(() => {
+    console.log("token", session?.access_token);
+  }, [session])
+  
 
   // Fetch certificate count from blockchain on mount
   useEffect(() => {
@@ -27,16 +36,16 @@ export default function Home() {
         const result = await getCurrentCounter();
         if (result.success) {
           // Format the count nicely (e.g., 1,234)
-          const formattedCount = result.count.toLocaleString();
+          const formattedCount = (result.count - 1000).toLocaleString();
           setCertificatesIssued(formattedCount);
         } else {
           // Fallback to static value if there's an error
           console.error('Failed to fetch certificate count:', result.error);
-          setCertificatesIssued('1,000+');
+          setCertificatesIssued('----');
         }
       } catch (error) {
         console.error('Error fetching certificate count:', error);
-        setCertificatesIssued('1,000+');
+        setCertificatesIssued('----');
       }
     }
 
