@@ -11,8 +11,13 @@ const app = express();
 
 // CORS configuration - allow all origins for now
 app.use(cors({
-  origin: '*',
-  credentials: true,
+  origin: [
+    'https://confcert-vitap.vercel.app',
+    'http://localhost:3000'
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
 }));
 
 app.use(express.json());
