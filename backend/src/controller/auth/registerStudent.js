@@ -102,8 +102,32 @@ export const registerStudent = async (req, res) => {
         );
     }
 
-    // Generate random username for student
-    const username = `student_${Math.random().toString(36).substring(2, 8)}_${Date.now().toString().slice(-4)}`;
+    // Generate clean username for student (format: student_123456)
+    const randomNum = Math.floor(100000 + Math.random() * 900000); // 6-digit random number
+    const username = `student_${randomNum}`;
+
+    // Ensure uniqueness by checking if username already exists
+    let finalUsername = username;
+    let counter = 1;
+    while (true) {
+      const { data: existingUsername } = await supabaseServer
+        .from("auth")
+        .select("id")
+        .eq("username", finalUsername)
+        .single();
+
+      if (!existingUsername) break; // Username is available
+
+      // If exists, append counter
+      finalUsername = `${username}_${counter}`;
+      counter++;
+
+      // Prevent infinite loop
+      if (counter > 100) {
+        finalUsername = `student_${Date.now()}`;
+        break;
+      }
+    }
 
     // Insert user into auth table with role
     const { error: insertError } = await supabaseServer

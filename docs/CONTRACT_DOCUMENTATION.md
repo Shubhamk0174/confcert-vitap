@@ -472,35 +472,5 @@ await tx.wait();
 - **Department Admins**: One per department/club
 - **Emergency Admin**: Backup wallet for disaster recovery
 
----
-
-## Changelog from Previous Version
-
-### Major Changes
-1. ✅ Added `regNo` field to Certificate struct
-2. ✅ Added `issuerUsername` field to Certificate struct
-3. ✅ Replaced owner/authorized system with multi-admin system
-4. ✅ Any admin can add/remove other admins (including original deployer)
-5. ✅ Added `getCertificatesByRegNo()` function
-6. ✅ Added `getCertificatesByIssuerName()` function
-7. ✅ Added `getAllCertificates()` function
-8. ✅ Added `verifyCertificateWithDetails()` function
-9. ✅ Updated issuance functions to include regNo and issuerUsername
-10. ✅ All view functions are public (anyone can verify without wallet)
-
----
-
-## License
-
-MIT License - See contract header for full license text.
-
----
-
-## Support & Questions
-
-For technical support or questions about this smart contract, please refer to:
-- Contract source code comments
-- This documentation
-- Blockchain explorer for deployed contract
 
 **Last Updated**: January 2026

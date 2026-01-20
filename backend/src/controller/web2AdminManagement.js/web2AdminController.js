@@ -17,11 +17,11 @@ export const registerAdminCredentials = async (req, res) => {
     const {name, username, password } = req.body;
 
     // Basic validation
-    if (!name, !username || !password) {
+    if (!name || !username || !password) {
       return res
         .status(HttpStatusCode.BAD_REQUEST)
         .json(
-          new ApiError(HttpStatusCode.BAD_REQUEST, "Missing required fields: username and password")
+          new ApiError(HttpStatusCode.BAD_REQUEST, "Missing required fields: name, username and password")
         );
     }
 
