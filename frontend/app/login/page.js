@@ -111,7 +111,12 @@ export default function LoginPage() {
         }
 
         // Redirect based on user type
-        const redirectPath = userType === 'admin' ? '/admin' : '/profile';
+        let redirectPath = '/profile';
+        if (userType === 'admin') {
+          redirectPath = '/admin';
+        } else if (userType === 'club-admin') {
+          redirectPath = '/club-admin';
+        }
         router.push(redirectPath);
       } else {
         setError('Login failed. Invalid response from server.');

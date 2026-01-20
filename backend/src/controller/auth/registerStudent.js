@@ -11,7 +11,6 @@ import { supabaseServer } from "../../db/supabaseServer.js";
 export const registerStudent = async (req, res) => {
   try {
     const { email, password } = req.body;
-    // const {}
 
     // Basic validation
     if (!email || !password) {

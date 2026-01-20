@@ -76,6 +76,7 @@ export default function Navbar() {
         ...baseItems,
         { name: 'Create', href: '/create' },
         { name: 'Templates', href: '/edit-template' },
+        { name: 'Dashboard', href: '/club-admin' },
       ];
     } else if (userRole === 'student') {
       return [

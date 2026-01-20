@@ -25,6 +25,8 @@ export default function GuestGuard({
   const computedRedirectTo = useMemo(() => {
     if (user?.userType === 'admin') {
       return '/admin';
+    } else if (user?.userType === 'club-admin') {
+      return '/club-admin';
     }
     return '/profile';
   }, [user?.userType]);

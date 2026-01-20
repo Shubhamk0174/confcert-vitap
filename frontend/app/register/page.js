@@ -71,7 +71,7 @@ export default function RegisterPage() {
 
     try {
       const response = await axiosClient.post('/api/auth/register/student', {
-        username: formData.email,  // Backend expects 'username' field with email value
+        email: formData.email,
         password: formData.password,
       });
 
