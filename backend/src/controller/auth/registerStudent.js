@@ -110,7 +110,7 @@ export const registerStudent = async (req, res) => {
       .from("auth")
       .insert({
         auth_id: authData.user.id,
-        name: email.split("@")[0], // Use email prefix as display name
+        name: email.split(".")[0], 
         username: username, // Randomly generated username for students
         email: email, // Store full email for students
         role: "student"

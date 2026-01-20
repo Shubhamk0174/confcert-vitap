@@ -34,7 +34,7 @@ export const loginStudent = async (req, res) => {
     // Students are stored with email 
     const { data: userData, error: userQueryError } = await supabaseServer
       .from("auth")
-      .select("id, username, email, role")
+      .select("id, username, email, role, name")
       .eq("email", username) // Query by full email for students
       .single();
 
@@ -107,7 +107,8 @@ export const loginStudent = async (req, res) => {
         message: "Login successful",
         user: {
           id: data.user.id,
-          username: null, // Students don't have username stored
+          username: userData.username,
+          name: userData.name,
           email: username, // Return full email
           role: userData.role,
           currentRole: "student",

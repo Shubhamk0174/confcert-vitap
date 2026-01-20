@@ -844,7 +844,7 @@ export default function CreateCertificate() {
                         Click to upload Excel file
                       </p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Must contain &quot;name&quot; and &quot;email&quot; columns (Max 100 students)
+                        Must contain &quot;name&quot;, &quot;regNo&quot;, and &quot;email&quot; columns (Max 100 students)
                       </p>
                     </label>
                   </div>
@@ -874,6 +874,7 @@ export default function CreateCertificate() {
                             <tr>
                               <th className="px-4 py-2 text-left">#</th>
                               <th className="px-4 py-2 text-left">Name</th>
+                              <th className="px-4 py-2 text-left">Reg No</th>
                               <th className="px-4 py-2 text-left">Email</th>
                               {selectedTemplate && selectedTemplate.customPlaceholders && 
                                selectedTemplate.customPlaceholders.map((placeholder, idx) => (
@@ -890,6 +891,7 @@ export default function CreateCertificate() {
                               <tr key={index} className="border-t hover:bg-secondary/50">
                                 <td className="px-4 py-2">{index + 1}</td>
                                 <td className="px-4 py-2">{student.name}</td>
+                                <td className="px-4 py-2 font-mono text-sm">{student.regNo}</td>
                                 <td className="px-4 py-2 text-muted-foreground">{student.email || '-'}</td>
                                 {selectedTemplate && selectedTemplate.customPlaceholders && 
                                  selectedTemplate.customPlaceholders.map((placeholder, idx) => (

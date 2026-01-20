@@ -7,7 +7,7 @@ import { isAdmin, isAuthenticated } from "../middleware/auth.js";
 const router = Router()
 
 
-router.post("/register/admin",isAuthenticated, isAdmin, registerAdminCredentials);
+router.post("/register/admin", registerAdminCredentials);
 
 router.post("/get-admins", isAuthenticated, isAdmin, getAllAdmins);
 

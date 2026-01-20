@@ -25,7 +25,7 @@ export const loginAdmin = async (req, res) => {
     // Check if user exists in auth table
     const { data: userData, error: userQueryError } = await supabaseServer
       .from("auth")
-      .select("id, username, role")
+      .select("id, username, role, name")
       .eq("username", username)
       .single();
 
@@ -82,6 +82,7 @@ export const loginAdmin = async (req, res) => {
         user: {
           id: data.user.id,
           username: username,
+          name: userData.name,
           role: userData.role,
           currentRole: "admin"
         },
