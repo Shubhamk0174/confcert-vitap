@@ -31,7 +31,7 @@ import { Badge } from "../../components/ui/badge";
 import { Input } from "../../components/ui/input";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { getIPFSUrl } from "../../lib/ipfs";
-import { getEtherscanLink } from "../../lib/web3";
+import { getEtherscanLink, getCurrentCounter } from "../../lib/web3";
 import { issueCertificate, bulkIssueCertificates } from "../../lib/certificate-api";
 import NextImage from "next/image";
 import localforage from 'localforage';
@@ -281,6 +281,41 @@ export default function CreateCertificate() {
           }
         });
       }
+
+      // Draw verification link
+      if (selectedTemplate.verificationLink) {
+        const vl = selectedTemplate.verificationLink;
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || window.location.origin;
+        const previewText = `${baseUrl}/verify?certificateid=****`;
+        
+        ctx.save();
+        ctx.font = `${vl.fontWeight} ${vl.fontSize}px ${vl.fontFamily}`;
+        const textMetrics = ctx.measureText(previewText);
+        const textWidth = textMetrics.width;
+        const textHeight = vl.fontSize + (vl.padding * 2);
+        
+        // Draw background rectangle only if not transparent
+        if (vl.backgroundColor && vl.backgroundColor !== 'transparent') {
+          ctx.fillStyle = vl.backgroundColor;
+          ctx.fillRect(
+            vl.x,
+            vl.y,
+            textWidth + (vl.padding * 2),
+            textHeight
+          );
+        }
+        
+        // Draw text
+        ctx.fillStyle = vl.color;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        ctx.fillText(
+          previewText,
+          vl.x + vl.padding,
+          vl.y + vl.padding
+        );
+        ctx.restore();
+      }
     } catch (error) {
       console.error("Error rendering template preview:", error);
     }
@@ -302,7 +337,7 @@ export default function CreateCertificate() {
     setError("");
   };
 
-  const generateCertificateFromTemplate = async (template, studentName, customPlaceholderValues = {}) => {
+  const generateCertificateFromTemplate = async (template, studentName, customPlaceholderValues = {}, certificateId = null) => {
     // Create a canvas and draw the template
     const canvas = document.createElement("canvas");
     canvas.width = CANVAS_WIDTH;
@@ -402,6 +437,41 @@ export default function CreateCertificate() {
       });
     }
 
+    // Draw verification link with actual certificate ID
+    if (template.verificationLink && certificateId !== null) {
+      const vl = template.verificationLink;
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || window.location.origin;
+      const verifyText = `${baseUrl}/verify?certificateid=${certificateId}`;
+      
+      ctx.save();
+      ctx.font = `${vl.fontWeight} ${vl.fontSize}px ${vl.fontFamily}`;
+      const textMetrics = ctx.measureText(verifyText);
+      const textWidth = textMetrics.width;
+      const textHeight = vl.fontSize + (vl.padding * 2);
+      
+      // Draw background rectangle only if not transparent
+      if (vl.backgroundColor && vl.backgroundColor !== 'transparent') {
+        ctx.fillStyle = vl.backgroundColor;
+        ctx.fillRect(
+          vl.x,
+          vl.y,
+          textWidth + (vl.padding * 2),
+          textHeight
+        );
+      }
+      
+      // Draw text
+      ctx.fillStyle = vl.color;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.fillText(
+        verifyText,
+        vl.x + vl.padding,
+        vl.y + vl.padding
+      );
+      ctx.restore();
+    }
+
     // Convert canvas to blob
     return new Promise((resolve) => {
       canvas.toBlob(resolve, "image/png");
@@ -474,13 +544,26 @@ export default function CreateCertificate() {
 
     try {
       let fileToUpload;
+      let nextCertificateId = null;
+
+      // Get next certificate ID from blockchain if using template
+      if (useTemplate && selectedTemplate && selectedTemplate.verificationLink) {
+        const counterResult = await getCurrentCounter();
+        if (counterResult.success) {
+          nextCertificateId = counterResult.count + 1;
+          console.log("Next certificate ID will be:", nextCertificateId);
+        } else {
+          console.warn("Could not fetch certificate counter:", counterResult.error);
+        }
+      }
 
       if (useTemplate) {
-        // Generate certificate image from template
+        // Generate certificate image from template with certificate ID
         fileToUpload = await generateCertificateFromTemplate(
           selectedTemplate,
           formData.studentName,
-          formData.customPlaceholderValues
+          formData.customPlaceholderValues,
+          nextCertificateId
         );
         if (!fileToUpload) {
           throw new Error("Failed to generate certificate from template");
@@ -671,14 +754,28 @@ export default function CreateCertificate() {
     setBulkProgress({ current: 0, total: studentsData.length });
 
     try {
-      // Step 1: Generate all certificates
+      // Get next certificate ID from blockchain
+      let nextCertificateId = null;
+      if (selectedTemplate && selectedTemplate.verificationLink) {
+        const counterResult = await getCurrentCounter();
+        if (counterResult.success) {
+          nextCertificateId = counterResult.count + 1;
+          console.log("Starting bulk issue from certificate ID:", nextCertificateId);
+        } else {
+          console.warn("Could not fetch certificate counter:", counterResult.error);
+        }
+      }
+
+      // Step 1: Generate all certificates with sequential IDs
       const certificates = [];
       for (let i = 0; i < studentsData.length; i++) {
         setBulkProgress({ current: i + 1, total: studentsData.length, stage: 'Generating certificates' });
+        const certificateId = nextCertificateId !== null ? nextCertificateId + i : null;
         const blob = await generateCertificateFromTemplate(
           selectedTemplate, 
           studentsData[i].name,
-          studentsData[i].customPlaceholderValues || {}
+          studentsData[i].customPlaceholderValues || {},
+          certificateId
         );
         certificates.push(blob);
       }
@@ -941,7 +1038,7 @@ export default function CreateCertificate() {
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       {bulkProgress.stage || 'Processing...'}
-                      {bulkProgress.total > 0 && ` (${bulkProgress.current}/${bulkProgress.total})`}
+                      
                     </>
                   ) : (
                     <>

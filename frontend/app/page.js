@@ -23,10 +23,6 @@ export default function Home() {
 
   // State for certificate count from blockchain
   const [certificatesIssued, setCertificatesIssued] = useState('Loading...');
-
-  useEffect(() => {
-    console.log("token", session?.access_token);
-  }, [session])
   
   // Get user role
   const getUserRole = () => {

@@ -353,7 +353,7 @@ export default function ProfilePage() {
                                 </div>
                               </div>
                               <div className="flex flex-col gap-2">
-                                <Link href={`/verify?id=${cert.id}`}>
+                                <Link href={`/verify?certificateid=${cert.id}`}>
                                   <Button size="sm" variant="outline" className="gap-1">
                                     <Eye className="h-3 w-3" />
                                     View

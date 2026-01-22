@@ -81,6 +81,30 @@ export default function CertificateEditor({ mode, onBack, initialTemplate }) {
     }));
   };
 
+  const sanitizeVerificationLink = (vl) => {
+    if (!vl) {
+      return {
+        x: 10,
+        y: CANVAS_HEIGHT - 30,
+        fontSize: 10,
+        fontFamily: 'monospace',
+        fontWeight: 'normal',
+        color: '#000000',
+        backgroundColor: 'transparent',
+        padding: 5,
+        text: `${process.env.NEXT_PUBLIC_BASE_URL || 'baseurl'}/verify?certificateid=****`,
+      };
+    }
+    return {
+      ...vl,
+      fontSize: Number(vl.fontSize) || 10,
+      x: Number(vl.x) || 10,
+      y: Number(vl.y) || CANVAS_HEIGHT - 30,
+      padding: Number(vl.padding) || 5,
+      backgroundColor: vl.backgroundColor || 'transparent',
+    };
+  };
+
   const canvasRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
@@ -175,8 +199,14 @@ export default function CertificateEditor({ mode, onBack, initialTemplate }) {
     }
     return [];
   });
+  const [verificationLink, setVerificationLink] = useState(() => {
+    if (initialTemplate && initialTemplate.verificationLink) {
+      return sanitizeVerificationLink(initialTemplate.verificationLink);
+    }
+    return sanitizeVerificationLink(null);
+  });
   const [selectedElement, setSelectedElement] = useState(null);
-  const [selectedElementType, setSelectedElementType] = useState(null); // 'text', 'name', 'logo', 'customPlaceholder'
+  const [selectedElementType, setSelectedElementType] = useState(null); // 'text', 'name', 'logo', 'customPlaceholder', 'verificationLink'
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [resizeStart, setResizeStart] = useState({ width: 0, height: 0, x: 0, y: 0 });
 
@@ -204,6 +234,7 @@ export default function CertificateEditor({ mode, onBack, initialTemplate }) {
       logo: logo ? JSON.parse(JSON.stringify(logo)) : null,
       backgroundImage,
       customPlaceholders: JSON.parse(JSON.stringify(customPlaceholders)),
+      verificationLink: JSON.parse(JSON.stringify(verificationLink)),
     };
     
     const newHistory = history.slice(0, historyIndex + 1);
@@ -217,7 +248,7 @@ export default function CertificateEditor({ mode, onBack, initialTemplate }) {
     }
     
     setHistory(newHistory);
-  }, [textElements, namePlaceholder, logo, backgroundImage, customPlaceholders, history, historyIndex]);
+  }, [textElements, namePlaceholder, logo, backgroundImage, customPlaceholders, verificationLink, history, historyIndex]);
 
   // Undo
   const undo = useCallback(() => {
@@ -229,6 +260,7 @@ export default function CertificateEditor({ mode, onBack, initialTemplate }) {
       setLogo(state.logo);
       setBackgroundImage(state.backgroundImage);
       setCustomPlaceholders(state.customPlaceholders || []);
+      setVerificationLink(state.verificationLink || sanitizeVerificationLink(null));
       setHistoryIndex(newIndex);
     }
   }, [history, historyIndex]);
@@ -243,6 +275,7 @@ export default function CertificateEditor({ mode, onBack, initialTemplate }) {
       setLogo(state.logo);
       setBackgroundImage(state.backgroundImage);
       setCustomPlaceholders(state.customPlaceholders || []);
+      setVerificationLink(state.verificationLink || sanitizeVerificationLink(null));
       setHistoryIndex(newIndex);
     }
   }, [history, historyIndex]);
@@ -486,6 +519,47 @@ export default function CertificateEditor({ mode, onBack, initialTemplate }) {
           drawSelectionBox(placeholder);
         }
       });
+
+      // Draw verification link
+      if (verificationLink) {
+        ctx.save();
+        ctx.font = `${verificationLink.fontWeight} ${verificationLink.fontSize}px ${verificationLink.fontFamily}`;
+        const textMetrics = ctx.measureText(verificationLink.text);
+        const textWidth = textMetrics.width;
+        const textHeight = verificationLink.fontSize + (verificationLink.padding * 2);
+        
+        // Draw background rectangle only if not transparent
+        if (verificationLink.backgroundColor && verificationLink.backgroundColor !== 'transparent') {
+          ctx.fillStyle = verificationLink.backgroundColor;
+          ctx.fillRect(
+            verificationLink.x,
+            verificationLink.y,
+            textWidth + (verificationLink.padding * 2),
+            textHeight
+          );
+        }
+        
+        // Draw text
+        ctx.fillStyle = verificationLink.color;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        ctx.fillText(
+          verificationLink.text,
+          verificationLink.x + verificationLink.padding,
+          verificationLink.y + verificationLink.padding
+        );
+        ctx.restore();
+
+        if (selectedElementType === 'verificationLink') {
+          const linkBox = {
+            x: verificationLink.x,
+            y: verificationLink.y,
+            width: textWidth + (verificationLink.padding * 2),
+            height: textHeight
+          };
+          drawSelectionBox(linkBox);
+        }
+      }
     }
 
     function drawGrid(ctx) {
@@ -575,7 +649,7 @@ export default function CertificateEditor({ mode, onBack, initialTemplate }) {
       
       ctx.restore();
     }
-  }, [backgroundImage, textElements, logo, namePlaceholder, customPlaceholders, selectedElement, selectedElementType, snapToGrid]);
+  }, [backgroundImage, textElements, logo, namePlaceholder, customPlaceholders, verificationLink, selectedElement, selectedElementType, snapToGrid]);
 
   const handleCanvasMouseDown = (e) => {
     const canvas = canvasRef.current;
@@ -631,6 +705,31 @@ export default function CertificateEditor({ mode, onBack, initialTemplate }) {
         setSelectedElement(i);
         setSelectedElementType('customPlaceholder');
         setDragOffset({ x: x - customPlaceholders[i].x, y: y - customPlaceholders[i].y });
+        setIsDragging(true);
+        return;
+      }
+    }
+
+    // Check if clicking on verification link
+    if (verificationLink) {
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+      ctx.font = `${verificationLink.fontWeight} ${verificationLink.fontSize}px ${verificationLink.fontFamily}`;
+      const textMetrics = ctx.measureText(verificationLink.text);
+      const textWidth = textMetrics.width;
+      const textHeight = verificationLink.fontSize + (verificationLink.padding * 2);
+      
+      const linkBox = {
+        x: verificationLink.x,
+        y: verificationLink.y,
+        width: textWidth + (verificationLink.padding * 2),
+        height: textHeight
+      };
+      
+      if (isInsideElement(x, y, linkBox)) {
+        setSelectedElement(null);
+        setSelectedElementType('verificationLink');
+        setDragOffset({ x: x - verificationLink.x, y: y - verificationLink.y });
         setIsDragging(true);
         return;
       }
@@ -814,6 +913,12 @@ export default function CertificateEditor({ mode, onBack, initialTemplate }) {
             : el
         )
       );
+    } else if (selectedElementType === 'verificationLink') {
+      setVerificationLink((prev) => ({
+        ...prev,
+        x: Math.max(0, snappedX),
+        y: Math.max(0, snappedY),
+      }));
     }
   };
 
@@ -951,6 +1056,7 @@ export default function CertificateEditor({ mode, onBack, initialTemplate }) {
       namePlaceholder,
       logo,
       customPlaceholders,
+      verificationLink,
       canvasWidth: CANVAS_WIDTH,
       canvasHeight: CANVAS_HEIGHT,
       mode,
@@ -1681,6 +1787,76 @@ export default function CertificateEditor({ mode, onBack, initialTemplate }) {
                           <RotateCw className="w-4 h-4" />
                         </Button>
                       </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Verification Link Properties */}
+            {selectedElementType === 'verificationLink' && verificationLink && (
+              <Card className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800">
+                <CardContent className="p-4">
+                  <h3 className="text-lg font-semibold text-neutral-900 dark:text-white mb-4">Verification Link</h3>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-sm text-neutral-600 dark:text-neutral-400 mb-1 block">Font Size</label>
+                      <Input
+                        type="number"
+                        value={verificationLink.fontSize ?? ''}
+                        onChange={(e) => {
+                          const val = e.target.value === '' ? '' : Number(e.target.value);
+                          setVerificationLink(prev => ({ ...prev, fontSize: val }));
+                        }}
+                        onBlur={(e) => {
+                          if (e.target.value === '' || Number(e.target.value) === 0 || isNaN(Number(e.target.value))) {
+                            setVerificationLink(prev => ({ ...prev, fontSize: 10 }));
+                          }
+                        }}
+                        placeholder="10"
+                        className="bg-neutral-100 dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm text-neutral-600 dark:text-neutral-400 mb-1 block">Text Color</label>
+                      <Input
+                        type="color"
+                        value={verificationLink.color}
+                        onChange={(e) => setVerificationLink(prev => ({ ...prev, color: e.target.value }))}
+                        className="h-10 bg-neutral-100 dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm text-neutral-600 dark:text-neutral-400 mb-1 block">Background Color</label>
+                      <Input
+                        type="color"
+                        value={verificationLink.backgroundColor}
+                        onChange={(e) => setVerificationLink(prev => ({ ...prev, backgroundColor: e.target.value }))}
+                        className="h-10 bg-neutral-100 dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm text-neutral-600 dark:text-neutral-400 mb-1 block">Padding</label>
+                      <Input
+                        type="number"
+                        value={verificationLink.padding ?? ''}
+                        onChange={(e) => {
+                          const val = e.target.value === '' ? '' : Number(e.target.value);
+                          setVerificationLink(prev => ({ ...prev, padding: val }));
+                        }}
+                        onBlur={(e) => {
+                          if (e.target.value === '' || Number(e.target.value) === 0 || isNaN(Number(e.target.value))) {
+                            setVerificationLink(prev => ({ ...prev, padding: 5 }));
+                          }
+                        }}
+                        placeholder="5"
+                        className="bg-neutral-100 dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white"
+                      />
+                    </div>
+                    <div className="pt-2">
+                      <p className="text-xs text-neutral-500">
+                        The verification link will be automatically generated with the certificate ID when issued.
+                      </p>
                     </div>
                   </div>
                 </CardContent>
