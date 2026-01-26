@@ -3,7 +3,8 @@ import {
   getContractDeploymentInfo,
   getCurrentAdminStatus,
   addAdminAddress,
-  removeAdminAddress
+  removeAdminAddress,
+  getAllAdmins
 } from "../controller/web3AdminManagement/web3adminController.js";
 import { isAdmin, isAuthenticated } from "../middleware/auth.js";
 
@@ -19,6 +20,9 @@ router.post("/add-admin-address", isAuthenticated, isAdmin, addAdminAddress);
 
 // Remove an existing admin
 router.post("/remove-admin",isAuthenticated, isAdmin, removeAdminAddress);
+
+// Get all admin addresses
+router.get("/get-all-admins", isAuthenticated, isAdmin, getAllAdmins);
 
 // Get contract deployment information
 router.get("/get-deployment-info",isAuthenticated, isAdmin, getContractDeploymentInfo);

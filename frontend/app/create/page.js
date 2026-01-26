@@ -38,6 +38,7 @@ import localforage from 'localforage';
 import * as XLSX from 'xlsx';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '../../lib/canvas-constants';
 import AuthGuard from '../../components/AuthGuard';
+import { jsPDF } from 'jspdf';
 
 export default function CreateCertificate() {
   const fileInputRef = useRef(null);
@@ -437,7 +438,7 @@ export default function CreateCertificate() {
       });
     }
 
-    // Draw verification link with actual certificate ID
+    // Draw verification link with actual certificate ID (visual only)
     if (template.verificationLink && certificateId !== null) {
       const vl = template.verificationLink;
       const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || window.location.origin;
@@ -472,11 +473,48 @@ export default function CreateCertificate() {
       ctx.restore();
     }
 
-    // Convert canvas to blob
-    return new Promise((resolve) => {
-      canvas.toBlob(resolve, "image/png");
+    // Convert canvas to base64 image
+    const imageData = canvas.toDataURL('image/jpeg', 0.95);
+
+    // Create PDF with A4 landscape dimensions
+    const pdf = new jsPDF({
+      orientation: 'landscape',
+      unit: 'mm',
+      format: 'a4'
     });
+
+    // A4 landscape dimensions in mm
+    const pdfWidth = 297;
+    const pdfHeight = 210;
+
+    // Add the canvas image to PDF
+    pdf.addImage(imageData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+
+    // Add clickable link annotation if certificate ID is provided
+    if (template.verificationLink && certificateId !== null) {
+      const vl = template.verificationLink;
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || window.location.origin;
+      const verifyUrl = `${baseUrl}/verify?certificateid=${certificateId}`;
+      
+      // Calculate link position and size in PDF coordinates
+      // Convert from canvas pixels to PDF mm
+      const linkX = (vl.x / CANVAS_WIDTH) * pdfWidth;
+      const linkY = (vl.y / CANVAS_HEIGHT) * pdfHeight;
+      
+      // Get text width for link area
+      ctx.font = `${vl.fontWeight} ${vl.fontSize}px ${vl.fontFamily}`;
+      const textMetrics = ctx.measureText(verifyUrl);
+      const linkWidth = ((textMetrics.width + (vl.padding * 2)) / CANVAS_WIDTH) * pdfWidth;
+      const linkHeight = ((vl.fontSize + (vl.padding * 2)) / CANVAS_HEIGHT) * pdfHeight;
+      
+      // Add clickable link annotation
+      pdf.link(linkX, linkY, linkWidth, linkHeight, { url: verifyUrl });
+    }
+
+    // Convert PDF to blob
+    return pdf.output('blob');
   };
+
 
 
 
@@ -505,13 +543,17 @@ export default function CreateCertificate() {
     setSelectedFile(file);
     setError("");
 
-    // Create preview for images
+    // Create preview for both images and PDFs
     if (file.type.startsWith("image/")) {
       const reader = new FileReader();
       reader.onloadend = () => {
         setPreviewUrl(reader.result);
       };
       reader.readAsDataURL(file);
+    } else if (file.type === "application/pdf") {
+      // Create blob URL for PDF preview
+      const url = URL.createObjectURL(file);
+      setPreviewUrl(url);
     } else {
       setPreviewUrl(null);
     }
@@ -1425,11 +1467,21 @@ export default function CreateCertificate() {
                     {previewUrl && (
                       <div className="mt-3">
                         <p className="text-sm font-medium mb-2">Preview:</p>
-                        <NextImage
-                          src={previewUrl}
-                          alt="Certificate preview"
-                          className="max-w-full h-auto rounded-lg border"
-                        />
+                        {selectedFile && selectedFile.type === 'application/pdf' ? (
+                          <iframe
+                            src={previewUrl}
+                            className="w-full h-96 rounded-lg border"
+                            title="PDF Preview"
+                          />
+                        ) : (
+                          <NextImage
+                            src={previewUrl}
+                            alt="Certificate preview"
+                            className="max-w-full h-auto rounded-lg border"
+                            width={800}
+                            height={600}
+                          />
+                        )}
                       </div>
                     )}
                   </div>

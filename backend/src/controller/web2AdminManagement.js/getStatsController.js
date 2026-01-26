@@ -15,7 +15,7 @@ dotenv.config();
 export const getAdminStats = async (req, res) => {
   try {
     // Get blockchain data
-    const provider = new ethers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL);
+    const provider = new ethers.JsonRpcProvider(process.env.BLOCKCHAIN_RPC_URL);
     const wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
     
     const balance = await provider.getBalance(wallet.address);

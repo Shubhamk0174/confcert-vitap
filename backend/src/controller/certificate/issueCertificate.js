@@ -143,6 +143,7 @@ export const issueCertificate = async (req, res) => {
         ipfsHash,
         issuerAddress,
         transactionHash,
+        pinataUrl: ipfsResult.pinataUrl,
       });
 
       if (emailResult.success) {

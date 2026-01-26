@@ -23,15 +23,17 @@ export const isAuthenticated = async (req, res, next) => {
 
     // Verify token with Supabase
     const { data: { user }, error } = await supabaseServer.auth.getUser(token);
-    console.log("user id",user.id);
 
     if (error || !user) {
+      console.log("Authentication failed:", error?.message || "User not found");
       return res
         .status(HttpStatusCode.UNAUTHORIZED)
         .json(
           new ApiError(HttpStatusCode.UNAUTHORIZED, "Invalid or expired token")
         );
     }
+
+    console.log("user id", user.id);
 
     // Get user data from auth table
     let userData;

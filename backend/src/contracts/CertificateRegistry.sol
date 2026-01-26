@@ -23,6 +23,7 @@ contract CertificateRegistry {
     // Mappings
     mapping(uint256 => Certificate) public certificates;      
     mapping(address => bool) public admins;
+    address[] private adminAddresses;  // Array to track all admin addresses
     mapping(string => uint256[]) private certificatesByRegNo;  
     mapping(string => uint256[]) private certificatesByIssuer; 
     uint256[] private allCertificateIds;                       
@@ -51,6 +52,7 @@ contract CertificateRegistry {
     constructor() {
         deployer = msg.sender;
         admins[msg.sender] = true;
+        adminAddresses.push(msg.sender);  // Add deployer to admin addresses array
         certificateCounter = 1000; 
         emit AdminAdded(msg.sender, msg.sender);
     }
@@ -64,6 +66,7 @@ contract CertificateRegistry {
         require(!admins[_newAdmin], "Address is already an admin");
         
         admins[_newAdmin] = true;
+        adminAddresses.push(_newAdmin);  // Add to admin addresses array
         emit AdminAdded(_newAdmin, msg.sender);
     }
     
@@ -73,11 +76,27 @@ contract CertificateRegistry {
         require(admins[_admin], "Address is not an admin");
         
         admins[_admin] = false;
+        
+        // Remove from adminAddresses array
+        for (uint256 i = 0; i < adminAddresses.length; i++) {
+            if (adminAddresses[i] == _admin) {
+                // Move the last element to this position and pop
+                adminAddresses[i] = adminAddresses[adminAddresses.length - 1];
+                adminAddresses.pop();
+                break;
+            }
+        }
+        
         emit AdminRemoved(_admin, msg.sender);
     }
 
     function isAdmin(address _address) public view returns (bool) {
         return admins[_address];
+    }
+    
+    // Get all admin addresses
+    function getAllAdmins() public view onlyAdmin returns (address[] memory) {
+        return adminAddresses;
     }
     
     // ======================

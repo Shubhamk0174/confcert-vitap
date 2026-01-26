@@ -40,27 +40,68 @@ export const sendCertificateEmailFunction= async ({
   ipfsHash,
   issuerAddress,
   transactionHash,
+  pinataUrl,
 }) => {
   try {
     const verificationLink =
       `${process.env.BASE_URL}/verify?certificateid=${certificateId}`;
 
-    const certificateLink = `https://ipfs.io/ipfs/${ipfsHash}`;
+    // Use Pinata URL first, then fallback to other gateways
+    const ipfsGateways = [
+      pinataUrl || `https://gateway.pinata.cloud/ipfs/${ipfsHash}`,
+      `https://ipfs.io/ipfs/${ipfsHash}`,
+      `https://cloudflare-ipfs.com/ipfs/${ipfsHash}`,
+      `https://dweb.link/ipfs/${ipfsHash}`,
+    ];
 
     let attachments = [];
+    let certificateAttached = false;
 
-    try {
-      const response = await fetch(certificateLink);
-      if (response.ok) {
-        const buffer = await response.arrayBuffer();
-        attachments.push({
-          filename: 'certificate.png',
-          content: Buffer.from(buffer),
-          cid: 'certificateImage',
+    // Try multiple IPFS gateways until one succeeds
+    for (const gateway of ipfsGateways) {
+      try {
+        console.log(`📎 Attempting to fetch certificate from: ${gateway}`);
+        
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+        
+        const response = await fetch(gateway, { 
+          signal: controller.signal,
+          headers: {
+            'Accept': 'application/pdf,image/*'
+          }
         });
+        clearTimeout(timeout);
+        
+        if (response.ok) {
+          const buffer = await response.arrayBuffer();
+          const contentType = response.headers.get('content-type');
+          
+          console.log(`✅ Certificate fetched successfully. Content-Type: ${contentType}, Size: ${buffer.byteLength} bytes`);
+          
+          // Determine if it's a PDF or image
+          const isPDF = contentType && contentType.includes('application/pdf');
+          
+          attachments.push({
+            filename: isPDF ? 'certificate.pdf' : 'certificate.png',
+            content: Buffer.from(buffer),
+            contentType: isPDF ? 'application/pdf' : 'image/png',
+          });
+          
+          certificateAttached = true;
+          console.log(`✅ Certificate attached as ${isPDF ? 'PDF' : 'PNG'}`);
+          break; // Successfully attached, exit loop
+        } else {
+          console.warn(`❌ Gateway returned status ${response.status}: ${gateway}`);
+        }
+      } catch (err) {
+        console.warn(`❌ Failed to fetch from gateway: ${err.message}`);
+        // Continue to next gateway
       }
-    } catch (err) {
-      console.warn('Could not attach certificate image:', err.message);
+    }
+
+    if (!certificateAttached) {
+      console.error('⚠️ WARNING: Could not attach certificate from any IPFS gateway!');
     }
 
     const mailOptions = {
@@ -76,11 +117,7 @@ export const sendCertificateEmailFunction= async ({
 
           <p>Dear <strong>${studentName}</strong>,</p>
 
-          <p>Congratulations! Your certificate has been successfully issued and registered on the blockchain. Below is your certificate:</p>
-
-          <div style="text-align: center; margin: 30px 0; padding: 20px; border: 2px solid #e5e7eb; border-radius: 8px; background-color: #f9fafb;">
-            <img src="cid:certificateImage" alt="Certificate" style="max-width: 100%; height: auto; border-radius: 4px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);" />
-          </div>
+          <p>Congratulations! Your certificate has been successfully issued and registered on the blockchain.</p>
 
           <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
             <h3 style="margin-top: 0; color: #374151;">Certificate Details:</h3>
@@ -90,6 +127,12 @@ export const sendCertificateEmailFunction= async ({
               <li style="margin-bottom: 10px;"><strong>Transaction:</strong> <a href="https://sepolia.etherscan.io/tx/${transactionHash}" style="color: #2563eb; text-decoration: underline;">View on Etherscan</a></li>
               <li><strong>Verification Link:</strong> <a href="${verificationLink}" style="color: #2563eb; text-decoration: underline; word-break: break-all;">${verificationLink}</a></li>
             </ul>
+          </div>
+
+          <div style="text-align: center; margin: 20px 0; padding: 20px; border: 2px dashed #2563eb; border-radius: 8px; background-color: #eff6ff;">
+            <p style="margin: 0; color: #1e40af; font-size: 16px;">
+              📎 <strong>Your certificate is attached to this email as a PDF</strong>
+            </p>
           </div>
 
           <p style="color: #6b7280; font-size: 14px;">
@@ -188,6 +231,7 @@ export const sendBulkCertificateEmails = async (certificates, options = {}) => {
           ipfsHash: cert.ipfsHash,
           issuerAddress: issuerAddress,
           transactionHash: transactionHash,
+          pinataUrl: cert.pinataUrl,
         });
 
         results.push({

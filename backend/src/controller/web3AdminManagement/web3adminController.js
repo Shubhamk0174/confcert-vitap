@@ -5,7 +5,8 @@ import {
   addAdminToContract, 
   removeAdminFromContract,
   getDeploymentInfo,
-  getCurrentWalletAdminStatus
+  getCurrentWalletAdminStatus,
+  getAllAdminAddresses
 } from "../../services/web3adminManagementFunctions.js";
 
 
@@ -194,6 +195,44 @@ export const getCurrentAdminStatus = async (req, res) => {
         new ApiError(
           HttpStatusCode.INTERNAL_SERVER_ERROR,
           error.message || "Failed to get current admin status"
+        )
+      );
+  }
+};
+
+/**
+ * Get all admin addresses from blockchain
+ * GET /api/admin/get-all-admins
+ */
+export const getAllAdmins = async (req, res) => {
+  try {
+    const result = await getAllAdminAddresses();
+
+    if (!result.success) {
+      return res
+        .status(HttpStatusCode.INTERNAL_SERVER_ERROR)
+        .json(new ApiError(HttpStatusCode.INTERNAL_SERVER_ERROR, result.error));
+    }
+
+    return res.status(HttpStatusCode.OK).json(
+      new ApiResponse(
+        HttpStatusCode.OK,
+        {
+          admins: result.admins,
+          count: result.count
+        },
+        "Admin addresses retrieved successfully"
+      )
+    );
+
+  } catch (error) {
+    console.error("❌ Get all admins error:", error);
+    return res
+      .status(HttpStatusCode.INTERNAL_SERVER_ERROR)
+      .json(
+        new ApiError(
+          HttpStatusCode.INTERNAL_SERVER_ERROR,
+          error.message || "Failed to get admin addresses"
         )
       );
   }

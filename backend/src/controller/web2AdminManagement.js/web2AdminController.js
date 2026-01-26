@@ -399,9 +399,9 @@ export const getAllClubAdmins = async (req, res) => {
  */
 export const deleteAdmin = async (req, res) => {
   try {
-    const { id } = req.params;
+    const { id:adminId } = req.params;
 
-    if (!id) {
+    if (!adminId) {
       return res
         .status(HttpStatusCode.BAD_REQUEST)
         .json(
@@ -409,7 +409,6 @@ export const deleteAdmin = async (req, res) => {
         );
     }
 
-    const adminId = id.split("=")[1]
   
 
     // Get the user's auth_id first
@@ -471,9 +470,9 @@ export const deleteAdmin = async (req, res) => {
  */
 export const deleteClubAdmin = async (req, res) => {
   try {
-    const { id } = req.params;
+    const { id: clubAdminId } = req.params;
 
-    if (!id) {
+    if (!clubAdminId) {
       return res
         .status(HttpStatusCode.BAD_REQUEST)
         .json(
@@ -481,7 +480,6 @@ export const deleteClubAdmin = async (req, res) => {
         );
     }
 
-    const clubAdminId = id.split("=")[1]
     // Get the user's auth_id first
     const { data: user, error: getUserError } = await supabaseServer
       .from("auth")

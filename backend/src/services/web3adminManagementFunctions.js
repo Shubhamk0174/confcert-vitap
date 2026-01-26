@@ -32,6 +32,7 @@ const initializeContract = async () => {
       "function admins(address) public view returns (bool)",
       "function deployer() public view returns (address)",
       "function getDeploymentInfo() public view returns (address deployerAddress, bool isDeployerStillAdmin)",
+      "function getAllAdmins() public view returns (address[])",
       "event AdminAdded(address indexed newAdmin, address indexed addedBy)",
       "event AdminRemoved(address indexed removedAdmin, address indexed removedBy)"
     ];
@@ -275,6 +276,33 @@ export const getDeploymentInfo = async () => {
     return {
       success: false,
       error: error.message
+    };
+  }
+};
+
+/**
+ * Get all admin addresses from blockchain contract
+ * @returns {Object} - List of admin addresses
+ */
+export const getAllAdminAddresses = async () => {
+  try {
+    const contract = await initializeContract();
+    
+    // Call the contract's getAllAdmins function directly
+    const adminAddresses = await contract.getAllAdmins();
+    
+    return {
+      success: true,
+      admins: adminAddresses,
+      count: adminAddresses.length
+    };
+
+  } catch (error) {
+    console.error("❌ Error getting all admin addresses:", error);
+    return {
+      success: false,
+      error: error.message,
+      admins: []
     };
   }
 };

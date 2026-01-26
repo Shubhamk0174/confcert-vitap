@@ -54,7 +54,6 @@ export default function Navbar() {
     const baseItems = [
       { name: 'Home', href: '/' },
       { name: 'Verify', href: '/verify' },
-      { name: 'About', href: '/about' },
     ];
 
     if (!user) {
@@ -114,6 +113,12 @@ export default function Navbar() {
               </Link>
             ))}
 
+            <Link href="/about">
+              <Button variant="ghost" className="font-medium">
+                About
+              </Button>
+            </Link>
+
             <a
               href="https://github.com/Shubhamk0174/confcert-vitap"
               target="_blank"
@@ -152,7 +157,7 @@ export default function Navbar() {
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex flex-col">
-                    <span className="text-xs font-medium leading-none">{user.username || user.email}</span>
+                    <span className="text-xs font-medium leading-none">{user.name || user.username|| user.email}</span>
                     <span className="text-[10px] text-muted-foreground leading-none mt-0.5">
                       {getUserTypeLabel()}
                     </span>
@@ -271,6 +276,11 @@ export default function Navbar() {
                   <Moon className="absolute h-4 w-4 mr-2 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
                   <span>Toggle theme</span>
                 </Button>
+                <Link href="/about" onClick={() => setIsOpen(false)}>
+                  <Button variant="ghost" className="w-full justify-start">
+                    About
+                  </Button>
+                </Link>
                 <a
                   href="https://github.com/Shubhamk0174/confcert-blockchain"
                   target="_blank"

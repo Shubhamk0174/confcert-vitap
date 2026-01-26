@@ -3,6 +3,7 @@ import {  bulkIssueCertificates, issueCertificate} from "../controller/certifica
 
 import { uploadSingleFile, uploadMultipleFiles } from "../middleware/multer.js";
 import { getAllCertificates, getCertificatesBatch, getCertificatesByIssuerAddress, getCertificatesByIssuerName, getCertificatesByRegNo, getCertificatesofuser, getCertificateStats } from "../controller/certificate/getCertificates.js";
+import { searchCertificates, getCertificateDetails } from "../controller/certificate/searchCertificates.js";
 import { isAdmin, isAdminOrClubAdmin, isAuthenticated, isClubAdmin } from "../middleware/auth.js";
 
 
@@ -21,6 +22,10 @@ certificateRouter.get("/getcertificate/issuer-address/:address", getCertificates
 certificateRouter.get("/getcertificate/all", getAllCertificates);
 certificateRouter.post("/getcertificate/batch", getCertificatesBatch);
 certificateRouter.get("/getcertificate/stats", getCertificateStats);
+
+// New search endpoint with full details
+certificateRouter.post("/search", searchCertificates);
+certificateRouter.get("/details/:certificateId", getCertificateDetails);
 
 
 export default certificateRouter;

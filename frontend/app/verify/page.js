@@ -11,7 +11,6 @@ import { Alert, AlertDescription, AlertTitle } from '../../components/ui/alert';
 import { Badge } from '../../components/ui/badge';
 import { getCertificate, formatTimestamp, getAddressLink } from '../../lib/web3';
 import { getIPFSUrl, getAllIPFSUrls } from '../../lib/ipfs';
-import Image from 'next/image';
 
 function VerifyContent() {
   const [certificateId, setCertificateId] = useState('');
@@ -298,7 +297,7 @@ function VerifyContent() {
                       {/* Certificate Preview */}
                       <div className="border-t pt-6">
                         <h3 className="text-lg font-semibold mb-3">Certificate Preview</h3>
-                        <div className="bg-gray-50 rounded-lg p-4 flex items-center justify-center min-h-149 relative overflow-hidden">
+                        <div className="bg-gray-50 rounded-lg p-4 flex items-center justify-center min-h-100 relative overflow-hidden">
                           {imageLoading && (
                             <div className="absolute inset-0 flex items-center justify-center bg-gray-50 z-10">
                               <div className="flex flex-col items-center gap-2 text-muted-foreground">
@@ -309,13 +308,11 @@ function VerifyContent() {
                           )}
                           
                           {!imageError ? (
-                            <Image
+                            <iframe
                               key={currentGatewayIndex}
-                              fill
                               src={getIPFSUrl(result.certificate.ipfsHash, currentGatewayIndex)}
-                              alt="Certificate"
-                              className="object-contain rounded-lg shadow-sm"
-                              unoptimized
+                              className="w-full h-150 rounded-lg shadow-sm border-0"
+                              title="Certificate Preview"
                               onError={handleImageError}
                               onLoad={handleImageLoad}
                             />

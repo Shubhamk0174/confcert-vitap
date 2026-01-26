@@ -26,8 +26,8 @@ export async function uploadToIPFS(fileBuffer, fileName, mimeType) {
       throw new Error('File size exceeds 10MB limit');
     }
 
-    // Validate file type (images only)
-    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/pdf'];
+    // Validate file type (images and PDFs)
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
     if (!validTypes.includes(mimeType)) {
       throw new Error('Invalid file type. Only JPEG, PNG, and PDF are allowed');
     }

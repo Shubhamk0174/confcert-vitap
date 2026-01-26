@@ -7,7 +7,7 @@ const upload = multer({
     fileSize: 10 * 1024 * 1024, // 10MB limit per file
   },
   fileFilter: (req, file, cb) => {
-    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/pdf'];
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
     if (validTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
