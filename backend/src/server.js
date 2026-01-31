@@ -14,7 +14,10 @@ app.use(cors({
   origin: [
     'https://confcert-vitap.vercel.app',
     'http://localhost:3000',
-    'https://www.confcert.in/'
+    'https://confcert.in',
+    'https://www.confcert.in',
+    'http://confcert.in',
+    'http://www.confcert.in'
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
