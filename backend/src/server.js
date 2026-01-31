@@ -24,8 +24,8 @@ app.use(cors({
   credentials: true
 }));
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true })); // Added for form data parsing
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' })); // Added for form data parsing
 app.use(helmet());
 
 const PORT = process.env.PORT || 5500;
