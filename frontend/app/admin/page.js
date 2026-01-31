@@ -130,7 +130,7 @@ export default function AdminDashboard() {
       }
       // Note: search-certificates section maintains its state when navigating away
     }
-  }, [activeSection, mounted, user]);
+  }, [activeSection, mounted, user, loadedSections]);
 
   // API Functions
   const createClubAdmin = async (e) => {
@@ -1062,7 +1062,7 @@ export default function AdminDashboard() {
                                   size="sm"
                                   variant="ghost"
                                   onClick={() => copyToClipboard(address)}
-                                  className="flex-shrink-0"
+                                  className="shrink-0"
                                 >
                                   <Copy className="h-4 w-4" />
                                 </Button>
@@ -1071,7 +1071,7 @@ export default function AdminDashboard() {
                                 size="sm"
                                 variant="destructive"
                                 onClick={() => removeAdminAddress(address)}
-                                className="flex-shrink-0 ml-2"
+                                className="shrink-0 ml-2"
                               >
                                 <Trash2 className="h-4 w-4 mr-1" />
                                 Remove
