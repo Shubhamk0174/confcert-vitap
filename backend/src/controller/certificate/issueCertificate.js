@@ -339,8 +339,8 @@ export const bulkIssueCertificates = async (req, res) => {
 
     console.log("✅ All files uploaded to IPFS successfully");
 
-    // Step 2: Issue all certificates on blockchain in bulk
-    console.log("⛓️ Step 2/3: Issuing certificates on blockchain in bulk...");
+    // Step 2: Issue all certificates on blockchain in gas-safe batches
+    console.log("⛓️ Step 2/3: Issuing certificates on blockchain in gas-safe batches...");
     const blockchainResult = await bulkIssueCertificatesOnBlockchain(
       parsedStudentNames,
       parsedRegNos,
@@ -359,10 +359,12 @@ export const bulkIssueCertificates = async (req, res) => {
         );
     }
 
-    const { certificateIds, transactionHash, issuerAddress } = blockchainResult;
+    const { certificateIds, transactionHashes, transactionHash, issuerAddress, batchCount } = blockchainResult;
     console.log(
-      "✅ Bulk blockchain issuance successful. Transaction:",
-      transactionHash,
+      `✅ Bulk blockchain issuance successful. ${batchCount} transaction(s) completed`,
+    );
+    console.log(
+      `   Transaction hashes: ${transactionHashes.join(', ')}`,
     );
 
     // Prepare certificates data for email sending
@@ -415,7 +417,9 @@ export const bulkIssueCertificates = async (req, res) => {
         HttpStatusCode.OK,
         {
           count: certificates.length,
-          transactionHash,
+          transactionHash, // Primary transaction (first one)
+          transactionHashes, // All transactions for transparency
+          batchCount, // Number of blockchain batches
           issuerAddress,
           certificates,
           emailStats: bulkEmailResult
@@ -426,7 +430,7 @@ export const bulkIssueCertificates = async (req, res) => {
               }
             : null,
         },
-        `Successfully issued ${certificates.length} certificates`,
+        `Successfully issued ${certificates.length} certificates in ${batchCount} blockchain transaction(s)`,
       ),
     );
   } catch (error) {

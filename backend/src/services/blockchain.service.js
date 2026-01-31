@@ -689,12 +689,13 @@ export async function issueCertificateOnBlockchain(studentName, regNo, ipfsHash,
 }
 
 /**
- * Issue multiple certificates in a single transaction (bulk issuance)
+ * Issue multiple certificates in batches with gas-safe limits
+ * Automatically splits large batches into chunks of 10 certificates per transaction
  * @param {string[]} studentNames - Array of student names
  * @param {string[]} regNos - Array of registration numbers
  * @param {string[]} ipfsHashes - Array of IPFS hashes for each certificate
  * @param {string} issuerUsername - Name of the issuing organization (same for all certificates)
- * @returns {Promise<{success: boolean, certificateIds?: number[], transactionHash?: string, issuerAddress?: string, error?: string}>}
+ * @returns {Promise<{success: boolean, certificateIds?: number[], transactionHashes?: string[], issuerAddress?: string, error?: string}>}
  */
 export async function bulkIssueCertificatesOnBlockchain(studentNames, regNos, ipfsHashes, issuerUsername) {
   try {
@@ -710,53 +711,98 @@ export async function bulkIssueCertificatesOnBlockchain(studentNames, regNos, ip
       throw new Error('At least one certificate is required');
     }
 
-    if (studentNames.length > 100) {
-      throw new Error('Cannot issue more than 100 certificates at once');
-    }
-
     const { wallet } = getProviderAndWallet();
     const contract = getContract(wallet);
     const issuerAddress = wallet.address;
 
-    console.log(`Issuing ${studentNames.length} certificates in bulk...`);
-    console.log('Issuer Username:', issuerUsername);
-    console.log('Issuer Address:', issuerAddress);
+    // Gas-safe batch size: 10 certificates per transaction
+    const SAFE_BATCH_SIZE = 10;
+    const totalCertificates = studentNames.length;
+    const numberOfBatches = Math.ceil(totalCertificates / SAFE_BATCH_SIZE);
 
-    // Call the smart contract function with new parameters
-    const tx = await contract.bulkIssueCertificates(studentNames, regNos, ipfsHashes, issuerUsername);
-    
-    console.log('Bulk transaction sent:', tx.hash);
-    
-    // Wait for transaction to be mined
-    const receipt = await tx.wait();
-    
-    console.log('Bulk transaction mined in block:', receipt.blockNumber);
+    console.log(`\n🔗 Issuing ${totalCertificates} certificates in ${numberOfBatches} gas-safe batches...`);
+    console.log(`⚙️  Batch size: ${SAFE_BATCH_SIZE} certificates per transaction`);
+    console.log('📝 Issuer Username:', issuerUsername);
+    console.log('💼 Issuer Address:', issuerAddress);
 
-    // Extract all certificate IDs from event logs
-    const certificateIds = [];
-    for (const log of receipt.logs) {
+    const allCertificateIds = [];
+    const allTransactionHashes = [];
+    const allBlockNumbers = [];
+
+    // Process in batches
+    for (let i = 0; i < totalCertificates; i += SAFE_BATCH_SIZE) {
+      const batchNum = Math.floor(i / SAFE_BATCH_SIZE) + 1;
+      const batchEnd = Math.min(i + SAFE_BATCH_SIZE, totalCertificates);
+      const batchSize = batchEnd - i;
+
+      // Extract batch data
+      const batchStudentNames = studentNames.slice(i, batchEnd);
+      const batchRegNos = regNos.slice(i, batchEnd);
+      const batchIpfsHashes = ipfsHashes.slice(i, batchEnd);
+
+      console.log(`\n📦 Processing batch ${batchNum}/${numberOfBatches} (${batchSize} certificates)...`);
+
       try {
-        const parsedLog = contract.interface.parseLog(log);
-        if (parsedLog && parsedLog.name === 'CertificateIssued') {
-          certificateIds.push(Number(parsedLog.args.certificateId));
+        // Call smart contract for this batch
+        const tx = await contract.bulkIssueCertificates(
+          batchStudentNames,
+          batchRegNos,
+          batchIpfsHashes,
+          issuerUsername
+        );
+        
+        console.log(`  ✅ Transaction sent: ${tx.hash}`);
+        
+        // Wait for transaction to be mined
+        const receipt = await tx.wait();
+        
+        console.log(`  ✅ Mined in block: ${receipt.blockNumber}`);
+
+        // Extract certificate IDs from event logs
+        const batchCertificateIds = [];
+        for (const log of receipt.logs) {
+          try {
+            const parsedLog = contract.interface.parseLog(log);
+            if (parsedLog && parsedLog.name === 'CertificateIssued') {
+              batchCertificateIds.push(Number(parsedLog.args.certificateId));
+            }
+          } catch (e) {
+            // Skip logs that don't match our contract
+            continue;
+          }
         }
-      } catch (e) {
-        // Skip logs that don't match our contract
-        continue;
+
+        console.log(`  ✅ Issued certificate IDs: ${batchCertificateIds.join(', ')}`);
+
+        // Aggregate results
+        allCertificateIds.push(...batchCertificateIds);
+        allTransactionHashes.push(receipt.hash);
+        allBlockNumbers.push(receipt.blockNumber);
+
+      } catch (batchError) {
+        console.error(`  ❌ Batch ${batchNum} failed:`, batchError.message);
+        throw new Error(`Batch ${batchNum} failed: ${batchError.message}`);
       }
     }
 
+    console.log(`\n✨ All batches processed successfully!`);
+    console.log(`   📋 Total certificates issued: ${allCertificateIds.length}`);
+    console.log(`   🔗 Transactions: ${allTransactionHashes.length}`);
+
     return {
       success: true,
-      certificateIds,
-      transactionHash: receipt.hash,
-      blockNumber: receipt.blockNumber,
+      certificateIds: allCertificateIds,
+      transactionHashes: allTransactionHashes,
+      transactionHash: allTransactionHashes[0], // First transaction for backward compatibility
+      blockNumbers: allBlockNumbers,
+      blockNumber: allBlockNumbers[0], // First block for backward compatibility
       issuerAddress,
-      count: certificateIds.length,
+      count: allCertificateIds.length,
+      batchCount: numberOfBatches,
     };
 
   } catch (error) {
-    console.error('Bulk Issue Certificates Error:', error);
+    console.error('\n❌ Bulk Issue Certificates Error:', error);
     return {
       success: false,
       error: error.message || 'Failed to issue certificates in bulk on blockchain',
