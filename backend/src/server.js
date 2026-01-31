@@ -13,7 +13,8 @@ const app = express();
 app.use(cors({
   origin: [
     'https://confcert-vitap.vercel.app',
-    'http://localhost:3000'
+    'http://localhost:3000',
+    'https://www.confcert.in/'
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
