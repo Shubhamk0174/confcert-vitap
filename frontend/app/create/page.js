@@ -33,6 +33,7 @@ import { Alert, AlertDescription } from "../../components/ui/alert";
 import { getIPFSUrl } from "../../lib/ipfs";
 import { getEtherscanLink, getCurrentCounter } from "../../lib/web3";
 import { issueCertificate, bulkIssueCertificates } from "../../lib/certificate-api";
+import { compressFile, compressFiles } from "../../lib/compress";
 import NextImage from "next/image";
 import localforage from 'localforage';
 import * as XLSX from 'xlsx';
@@ -614,6 +615,11 @@ export default function CreateCertificate() {
         fileToUpload = selectedFile;
       }
 
+      // Compress certificate to ~200KB before upload
+      console.log(`📦 Compressing certificate (${(fileToUpload.size / 1024).toFixed(2)}KB)...`);
+      fileToUpload = await compressFile(fileToUpload, 200);
+      console.log(`✅ Compressed to ${(fileToUpload.size / 1024).toFixed(2)}KB`);
+
       // Call the unified backend API that handles everything
       const result = await issueCertificate(
         fileToUpload,
@@ -822,25 +828,67 @@ export default function CreateCertificate() {
         certificates.push(blob);
       }
 
-      // Step 2: Call backend API to handle everything (IPFS, blockchain, emails)
-      setBulkProgress({ current: 0, total: studentsData.length, stage: 'Processing on backend' });
-      
-      const studentNames = studentsData.map(s => s.name);
-      const regNos = studentsData.map(s => s.regNo);
-      const emails = studentsData.map(s => s.email);
-      
-      const result = await bulkIssueCertificates(certificates, studentNames, regNos, emails, sendEmail);
+      // Step 1.5: Compress all certificates to ~200KB before upload
+      setBulkProgress({ current: 0, total: studentsData.length, stage: 'Compressing certificates' });
+      console.log(`📦 Compressing ${certificates.length} certificates...`);
+      const compressedCertificates = await compressFiles(certificates, 200);
+      console.log(`✅ All certificates compressed`);
 
-      if (result.success) {
-        setTransactionStatus("success");
-        setTransactionHash(result.data.transactionHash);
-        setIssuerAddress(result.data.issuerAddress);
-        setBulkResults(result.data.certificates);
-        setSuccess(true);
-      } else {
-        setTransactionStatus("");
-        setError(result.error);
+      // Step 2: Split into chunks to avoid Vercel 4.5MB request limit
+      // With ~170KB per cert, 20 certs = ~3.4MB (safe under 4.5MB limit)
+      const CHUNK_SIZE = 20;
+      const chunks = [];
+      for (let i = 0; i < compressedCertificates.length; i += CHUNK_SIZE) {
+        chunks.push({
+          certificates: compressedCertificates.slice(i, i + CHUNK_SIZE),
+          studentNames: studentsData.slice(i, i + CHUNK_SIZE).map(s => s.name),
+          regNos: studentsData.slice(i, i + CHUNK_SIZE).map(s => s.regNo),
+          emails: studentsData.slice(i, i + CHUNK_SIZE).map(s => s.email)
+        });
       }
+
+      console.log(`📦 Split into ${chunks.length} chunks (${CHUNK_SIZE} certs per chunk)`);
+
+      // Step 3: Process chunks sequentially
+      const allResults = [];
+      const allTransactionHashes = [];
+      
+      for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
+        const chunk = chunks[chunkIndex];
+        const chunkNumber = chunkIndex + 1;
+        
+        setBulkProgress({ 
+          current: chunkIndex * CHUNK_SIZE, 
+          total: studentsData.length, 
+          stage: `Processing chunk ${chunkNumber}/${chunks.length}` 
+        });
+        
+        console.log(`📤 Uploading chunk ${chunkNumber}/${chunks.length} (${chunk.certificates.length} certs)...`);
+        
+        const result = await bulkIssueCertificates(
+          chunk.certificates, 
+          chunk.studentNames, 
+          chunk.regNos, 
+          chunk.emails, 
+          sendEmail
+        );
+
+        if (result.success) {
+          allResults.push(...result.data.certificates);
+          allTransactionHashes.push(result.data.transactionHash);
+          console.log(`✅ Chunk ${chunkNumber} completed (tx: ${result.data.transactionHash})`);
+        } else {
+          throw new Error(`Chunk ${chunkNumber} failed: ${result.error}`);
+        }
+      }
+
+      // All chunks processed successfully
+      setTransactionStatus("success");
+      setTransactionHash(allTransactionHashes.join(', '));
+      setIssuerAddress(allResults[0]?.issuerAddress || '');
+      setBulkResults(allResults);
+      setSuccess(true);
+      console.log(`✅ All ${chunks.length} chunks completed successfully`);
     } catch (err) {
       setTransactionStatus("");
       setError("Failed to issue certificates in bulk: " + err.message);
