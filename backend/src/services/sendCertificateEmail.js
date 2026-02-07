@@ -42,7 +42,7 @@ export const sendCertificateEmailFunction= async ({
       `${process.env.BASE_URL}/verify?certificateid=${certificateId}`;
 
     const mailOptions = {
-      from: '"ConfCert" <noreply@confcert.in>',
+      from: '"ConfCert" <noreply@mail.confcert.in>',
       to,
       subject: `Certificate Issued: ${studentName}`,
       html: `
