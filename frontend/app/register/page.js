@@ -85,11 +85,29 @@ export default function RegisterPage() {
       }
     } catch (err) {
       console.error('Registration error:', err);
-      setError(
-        err.response?.data?.message || 
-        err.response?.data?.error || 
-        'Registration failed. Please try again.'
-      );
+      
+      // Network error - no response from server
+      if (!err.response) {
+        if (err.request) {
+          setError('Cannot connect to server. Please check your internet connection or try again later.');
+        } else {
+          setError('An error occurred while setting up the request. Please try again.');
+        }
+      } 
+      // Server responded with an error
+      else {
+        const status = err.response.status;
+        const errorMessage = err.response?.data?.message || 
+                           err.response?.data?.error || 
+                           'Registration failed. Please try again.';
+        
+        // Handle specific error codes
+        if (status === 503) {
+          setError('Service temporarily unavailable. Please check your internet connection and try again.');
+        } else {
+          setError(errorMessage);
+        }
+      }
     } finally {
       setLoading(false);
     }

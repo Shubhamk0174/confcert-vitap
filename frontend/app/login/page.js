@@ -72,8 +72,6 @@ export default function LoginPage() {
         password: password,
       });
 
-      console.log('Login response:', response.data);
-
       // Backend returns: { statusCode, data: { user, session }, message, success }
       if (response.data && response.data.success && response.data.data) {
         const { user, session } = response.data.data;
@@ -123,11 +121,35 @@ export default function LoginPage() {
       }
     } catch (err) {
       console.error('Login error:', err);
-      setError(
-        err.response?.data?.message || 
-        err.response?.data?.error || 
-        'Login failed. Please check your credentials and try again.'
-      );
+      
+      // Network error - no response from server
+      if (!err.response) {
+        if (err.request) {
+          // Request was made but no response received
+          setError('Cannot connect to server. Please check your internet connection or try again later.');
+        } else {
+          // Something else happened
+          setError('An error occurred while setting up the request. Please try again.');
+        }
+      } 
+      // Server responded with an error
+      else {
+        const status = err.response.status;
+        const errorMessage = err.response?.data?.message || 
+                           err.response?.data?.error || 
+                           'Login failed. Please try again.';
+        
+        // Handle specific error codes
+        if (status === 503) {
+          // Service unavailable - backend can't reach Supabase
+          setError('Service temporarily unavailable. Please check your internet connection and try again.');
+        } else if (status === 429) {
+          // Too many requests
+          setError('Too many login attempts. Please try again later.');
+        } else {
+          setError(errorMessage);
+        }
+      }
     } finally {
       setLoading(false);
     }
