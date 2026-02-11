@@ -23,18 +23,51 @@ export const loginClubAdmin = async (req, res) => {
     }
 
     // Check if user exists in auth table
-    const { data: userData, error: userQueryError } = await supabaseServer
-      .from("auth")
-      .select("id, username, role, name")
-      .eq("username", username)
-      .single();
+    let userData, userQueryError;
+    try {
+      const result = await supabaseServer
+        .from("auth")
+        .select("id, username, role, name")
+        .eq("username", username)
+        .single();
+      userData = result.data;
+      userQueryError = result.error;
+    } catch (dbError) {
+      console.error("Database connection error:", dbError);
+      return res
+        .status(HttpStatusCode.SERVICE_UNAVAILABLE)
+        .json(
+          new ApiError(HttpStatusCode.SERVICE_UNAVAILABLE, "Database service temporarily unavailable. Please check your internet connection and try again.")
+        );
+    }
+
+    // Check if it's a network/connection error
+    if (userQueryError) {
+      const errorMessage = userQueryError.message || '';
+      const errorDetails = userQueryError.details || '';
+      
+      // Network errors: ENOTFOUND, fetch failed, connection refused, etc.
+      if (errorMessage.includes('fetch failed') || 
+          errorMessage.includes('ENOTFOUND') ||
+          errorMessage.includes('ECONNREFUSED') ||
+          errorDetails.includes('ENOTFOUND') ||
+          errorDetails.includes('fetch failed') ||
+          errorDetails.includes('ECONNREFUSED')) {
+        console.error("Database connection error:", userQueryError);
+        return res
+          .status(HttpStatusCode.SERVICE_UNAVAILABLE)
+          .json(
+            new ApiError(HttpStatusCode.SERVICE_UNAVAILABLE, "Database service temporarily unavailable. Please check your internet connection and try again.")
+          );
+      }
+    }
 
     if (userQueryError || !userData) {
       console.error("User not found in auth table:", username, userQueryError);
       return res
         .status(HttpStatusCode.UNAUTHORIZED)
         .json(
-          new ApiError(HttpStatusCode.UNAUTHORIZED, "Invalid credentials")
+          new ApiError(HttpStatusCode.UNAUTHORIZED, "Invalid username or password")
         );
     }
 
@@ -55,16 +88,58 @@ export const loginClubAdmin = async (req, res) => {
     const fullEmail = constructEmail(username);
     console.log("Attempting Supabase auth with email:", fullEmail);
 
-    const { data, error } = await anonClient.auth.signInWithPassword({
-      email: fullEmail,
-      password
-    });
+    let data, error;
+    try {
+      const result = await anonClient.auth.signInWithPassword({
+        email: fullEmail,
+        password
+      });
+      data = result.data;
+      error = result.error;
+    } catch (authError) {
+      console.error("Authentication service connection error:", authError);
+      return res
+        .status(HttpStatusCode.SERVICE_UNAVAILABLE)
+        .json(
+          new ApiError(HttpStatusCode.SERVICE_UNAVAILABLE, "Authentication service temporarily unavailable. Please check your internet connection and try again.")
+        );
+    }
+
+    // Check if auth error is network-related
+    if (error) {
+      const errorMessage = error.message || '';
+      
+      if (errorMessage.includes('fetch failed') || 
+          errorMessage.includes('ENOTFOUND') ||
+          errorMessage.includes('ECONNREFUSED')) {
+        console.error("Authentication service connection error:", error);
+        return res
+          .status(HttpStatusCode.SERVICE_UNAVAILABLE)
+          .json(
+            new ApiError(HttpStatusCode.SERVICE_UNAVAILABLE, "Authentication service temporarily unavailable. Please check your internet connection and try again.")
+          );
+      }
+    }
 
     if (error) {
       console.error("Supabase auth login error:", error.message, "| Status:", error.status, "| Email used:", fullEmail);
+      
+      // Provide more specific error messages
+      let errorMessage = "Invalid username or password";
+      
+      if (error.message.includes("Invalid login credentials")) {
+        errorMessage = "Invalid username or password";
+      } else if (error.message.includes("Email not confirmed")) {
+        errorMessage = "Email not verified. Please verify your email first.";
+      } else if (error.message.includes("Too many requests")) {
+        errorMessage = "Too many login attempts. Please try again later.";
+      } else if (error.status >= 500) {
+        errorMessage = "Authentication service temporarily unavailable. Please try again later.";
+      }
+      
       return res
         .status(HttpStatusCode.UNAUTHORIZED)
-        .json(new ApiError(HttpStatusCode.UNAUTHORIZED, "Invalid credentials"));
+        .json(new ApiError(HttpStatusCode.UNAUTHORIZED, errorMessage));
     }
 
     if (!data.user || !data.session) {

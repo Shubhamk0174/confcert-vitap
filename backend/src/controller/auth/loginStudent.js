@@ -32,18 +32,51 @@ export const loginStudent = async (req, res) => {
 
     // Check if user exists in auth table with student role
     // Students are stored with email 
-    const { data: userData, error: userQueryError } = await supabaseServer
-      .from("auth")
-      .select("id, username, email, role, name")
-      .eq("email", username) // Query by full email for students
-      .single();
+    let userData, userQueryError;
+    try {
+      const result = await supabaseServer
+        .from("auth")
+        .select("id, username, email, role, name")
+        .eq("email", username) // Query by full email for students
+        .single();
+      userData = result.data;
+      userQueryError = result.error;
+    } catch (dbError) {
+      console.error("Database connection error:", dbError);
+      return res
+        .status(HttpStatusCode.SERVICE_UNAVAILABLE)
+        .json(
+          new ApiError(HttpStatusCode.SERVICE_UNAVAILABLE, "Database service temporarily unavailable. Please check your internet connection and try again.")
+        );
+    }
+
+    // Check if it's a network/connection error
+    if (userQueryError) {
+      const errorMessage = userQueryError.message || '';
+      const errorDetails = userQueryError.details || '';
+      
+      // Network errors: ENOTFOUND, fetch failed, connection refused, etc.
+      if (errorMessage.includes('fetch failed') || 
+          errorMessage.includes('ENOTFOUND') ||
+          errorMessage.includes('ECONNREFUSED') ||
+          errorDetails.includes('ENOTFOUND') ||
+          errorDetails.includes('fetch failed') ||
+          errorDetails.includes('ECONNREFUSED')) {
+        console.error("Database connection error:", userQueryError);
+        return res
+          .status(HttpStatusCode.SERVICE_UNAVAILABLE)
+          .json(
+            new ApiError(HttpStatusCode.SERVICE_UNAVAILABLE, "Database service temporarily unavailable. Please check your internet connection and try again.")
+          );
+      }
+    }
 
     if (userQueryError || !userData) {
       console.error("User not found in auth table:", username, userQueryError);
       return res
         .status(HttpStatusCode.UNAUTHORIZED)
         .json(
-          new ApiError(HttpStatusCode.UNAUTHORIZED, "Invalid credentials")
+          new ApiError(HttpStatusCode.UNAUTHORIZED, "Invalid email or password")
         );
     }
 
@@ -62,15 +95,43 @@ export const loginStudent = async (req, res) => {
     // Sign in with Supabase auth using full email
     const anonClient = createAnonClient();
 
-    const { data, error } = await anonClient.auth.signInWithPassword({
-      email: username, // Use full email for students
-      password
-    });
+    let data, error;
+    try {
+      const result = await anonClient.auth.signInWithPassword({
+        email: username, // Use full email for students
+        password
+      });
+      data = result.data;
+      error = result.error;
+    } catch (authError) {
+      console.error("Authentication service connection error:", authError);
+      return res
+        .status(HttpStatusCode.SERVICE_UNAVAILABLE)
+        .json(
+          new ApiError(HttpStatusCode.SERVICE_UNAVAILABLE, "Authentication service temporarily unavailable. Please check your internet connection and try again.")
+        );
+    }
+
+    // Check if auth error is network-related
+    if (error) {
+      const errorMessage = error.message || '';
+      
+      if (errorMessage.includes('fetch failed') || 
+          errorMessage.includes('ENOTFOUND') ||
+          errorMessage.includes('ECONNREFUSED')) {
+        console.error("Authentication service connection error:", error);
+        return res
+          .status(HttpStatusCode.SERVICE_UNAVAILABLE)
+          .json(
+            new ApiError(HttpStatusCode.SERVICE_UNAVAILABLE, "Authentication service temporarily unavailable. Please check your internet connection and try again.")
+          );
+      }
+    }
 
     if (error) {
       console.error("Supabase auth login error:", error.message, "| Status:", error.status);
       
-      // Check if email is not confirmed
+      // Provide more specific error messages
       if (error.message.includes("Email not confirmed")) {
         return res
           .status(HttpStatusCode.FORBIDDEN)
@@ -79,9 +140,19 @@ export const loginStudent = async (req, res) => {
           );
       }
       
+      let errorMessage = "Invalid email or password";
+      
+      if (error.message.includes("Invalid login credentials")) {
+        errorMessage = "Invalid email or password";
+      } else if (error.message.includes("Too many requests")) {
+        errorMessage = "Too many login attempts. Please try again later.";
+      } else if (error.status >= 500) {
+        errorMessage = "Authentication service temporarily unavailable. Please try again later.";
+      }
+      
       return res
         .status(HttpStatusCode.UNAUTHORIZED)
-        .json(new ApiError(HttpStatusCode.UNAUTHORIZED, "Invalid credentials"));
+        .json(new ApiError(HttpStatusCode.UNAUTHORIZED, errorMessage));
     }
 
     if (!data.user || !data.session) {

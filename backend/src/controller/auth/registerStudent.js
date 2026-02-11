@@ -40,11 +40,43 @@ export const registerStudent = async (req, res) => {
     }
 
     // Check if student already exists by email (students are separate from admins)
-    const { data: existingUser, error: userQueryError } = await supabaseServer
-      .from("auth")
-      .select("id, username, email, role, auth_id")
-      .eq("email", email)
-      .single();
+    let existingUser, userQueryError;
+    try {
+      const result = await supabaseServer
+        .from("auth")
+        .select("id, username, email, role, auth_id")
+        .eq("email", email)
+        .single();
+      existingUser = result.data;
+      userQueryError = result.error;
+    } catch (dbError) {
+      console.error("Database connection error:", dbError);
+      return res
+        .status(HttpStatusCode.SERVICE_UNAVAILABLE)
+        .json(
+          new ApiError(HttpStatusCode.SERVICE_UNAVAILABLE, "Database service temporarily unavailable. Please check your internet connection and try again.")
+        );
+    }
+
+    // Check if it's a network/connection error
+    if (userQueryError && userQueryError.code !== "PGRST116") {
+      const errorMessage = userQueryError.message || '';
+      const errorDetails = userQueryError.details || '';
+      
+      if (errorMessage.includes('fetch failed') || 
+          errorMessage.includes('ENOTFOUND') ||
+          errorMessage.includes('ECONNREFUSED') ||
+          errorDetails.includes('ENOTFOUND') ||
+          errorDetails.includes('fetch failed') ||
+          errorDetails.includes('ECONNREFUSED')) {
+        console.error("Database connection error:", userQueryError);
+        return res
+          .status(HttpStatusCode.SERVICE_UNAVAILABLE)
+          .json(
+            new ApiError(HttpStatusCode.SERVICE_UNAVAILABLE, "Database service temporarily unavailable. Please check your internet connection and try again.")
+          );
+      }
+    }
 
     if (userQueryError && userQueryError.code !== "PGRST116") {
       console.error("Database query error:", userQueryError);
@@ -65,33 +97,107 @@ export const registerStudent = async (req, res) => {
     }
 
     // Check if email already exists in Supabase auth but not in our database
-    const { data: { users }, error: listError } = await supabaseServer.auth.admin.listUsers();
+    let users, listError;
+    try {
+      const result = await supabaseServer.auth.admin.listUsers();
+      users = result.data?.users;
+      listError = result.error;
+    } catch (authError) {
+      console.error("Authentication service connection error:", authError);
+      return res
+        .status(HttpStatusCode.SERVICE_UNAVAILABLE)
+        .json(
+          new ApiError(HttpStatusCode.SERVICE_UNAVAILABLE, "Authentication service temporarily unavailable. Please check your internet connection and try again.")
+        );
+    }
+    
+    // Check if listError is network-related
+    if (listError) {
+      const errorMessage = listError.message || '';
+      
+      if (errorMessage.includes('fetch failed') || 
+          errorMessage.includes('ENOTFOUND') ||
+          errorMessage.includes('ECONNREFUSED')) {
+        console.error("Authentication service connection error:", listError);
+        return res
+          .status(HttpStatusCode.SERVICE_UNAVAILABLE)
+          .json(
+            new ApiError(HttpStatusCode.SERVICE_UNAVAILABLE, "Authentication service temporarily unavailable. Please check your internet connection and try again.")
+          );
+      }
+    }
+    
     const existingAuthUser = users?.find(u => u.email === email);
     
     if (existingAuthUser) {
       console.log("Found existing Supabase auth user for student, deleting:", email);
-      // Delete the existing auth user to allow re-registration
-      await supabaseServer.auth.admin.deleteUser(existingAuthUser.id);
+      try {
+        // Delete the existing auth user to allow re-registration
+        await supabaseServer.auth.admin.deleteUser(existingAuthUser.id);
+      } catch (deleteError) {
+        console.error("Error deleting existing auth user:", deleteError);
+        // Continue with registration attempt
+      }
     }
 
     // User doesn't exist - create new student with email verification
     // Members use signUp (requires email confirmation) instead of createUser
     const anonClient = createAnonClient();
-    const { data: authData, error: authError } = await anonClient.auth.signUp({
-      email: email, // Use full email for students
-      password,
-      options: {
-        data: { 
-          role: "student"
+    let authData, authError;
+    try {
+      const result = await anonClient.auth.signUp({
+        email: email, // Use full email for students
+        password,
+        options: {
+          data: { 
+            role: "student"
+          }
         }
+      });
+      authData = result.data;
+      authError = result.error;
+    } catch (signUpError) {
+      console.error("Authentication service connection error:", signUpError);
+      return res
+        .status(HttpStatusCode.SERVICE_UNAVAILABLE)
+        .json(
+          new ApiError(HttpStatusCode.SERVICE_UNAVAILABLE, "Authentication service temporarily unavailable. Please check your internet connection and try again.")
+        );
+    }
+
+    // Check if authError is network-related
+    if (authError) {
+      const errorMessage = authError.message || '';
+      
+      if (errorMessage.includes('fetch failed') || 
+          errorMessage.includes('ENOTFOUND') ||
+          errorMessage.includes('ECONNREFUSED')) {
+        console.error("Authentication service connection error:", authError);
+        return res
+          .status(HttpStatusCode.SERVICE_UNAVAILABLE)
+          .json(
+            new ApiError(HttpStatusCode.SERVICE_UNAVAILABLE, "Authentication service temporarily unavailable. Please check your internet connection and try again.")
+          );
       }
-    });
+    }
 
     if (authError) {
       console.error("Supabase auth error:", authError);
+      
+      // Provide more specific error messages
+      let errorMessage = authError.message;
+      
+      if (authError.message.includes("already registered")) {
+        errorMessage = "This email is already registered. Please try logging in instead.";
+      } else if (authError.message.includes("Password should be")) {
+        errorMessage = "Password must be at least 6 characters long.";
+      } else if (authError.status >= 500) {
+        errorMessage = "Authentication service temporarily unavailable. Please try again later.";
+      }
+      
       return res
         .status(HttpStatusCode.BAD_REQUEST)
-        .json(new ApiError(HttpStatusCode.BAD_REQUEST, authError.message));
+        .json(new ApiError(HttpStatusCode.BAD_REQUEST, errorMessage));
     }
 
     if (!authData.user) {

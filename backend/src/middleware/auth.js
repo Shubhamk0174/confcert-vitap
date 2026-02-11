@@ -22,7 +22,35 @@ export const isAuthenticated = async (req, res, next) => {
     const token = authHeader.split(" ")[1];
 
     // Verify token with Supabase
-    const { data: { user }, error } = await supabaseServer.auth.getUser(token);
+    let user, error;
+    try {
+      const result = await supabaseServer.auth.getUser(token);
+      user = result.data?.user;
+      error = result.error;
+    } catch (authError) {
+      console.error("Authentication service connection error:", authError);
+      return res
+        .status(HttpStatusCode.SERVICE_UNAVAILABLE)
+        .json(
+          new ApiError(HttpStatusCode.SERVICE_UNAVAILABLE, "Authentication service temporarily unavailable. Please check your internet connection and try again.")
+        );
+    }
+
+    // Check if auth error is network-related
+    if (error) {
+      const errorMessage = error.message || '';
+      
+      if (errorMessage.includes('fetch failed') || 
+          errorMessage.includes('ENOTFOUND') ||
+          errorMessage.includes('ECONNREFUSED')) {
+        console.error("Authentication service connection error:", error);
+        return res
+          .status(HttpStatusCode.SERVICE_UNAVAILABLE)
+          .json(
+            new ApiError(HttpStatusCode.SERVICE_UNAVAILABLE, "Authentication service temporarily unavailable. Please check your internet connection and try again.")
+          );
+      }
+    }
 
     if (error || !user) {
       console.log("Authentication failed:", error?.message || "User not found");
@@ -40,15 +68,44 @@ export const isAuthenticated = async (req, res, next) => {
     let dbError;
 
     // Try to find by auth_id first (most reliable)
-    const result = await supabaseServer
-      .from("auth")
-      .select("id, name ,username, email, role, auth_id")
-      .eq("auth_id", user.id)
-      .single();
-    
-    userData = result.data;
-    dbError = result.error;
+    try {
+      const result = await supabaseServer
+        .from("auth")
+        .select("id, name ,username, email, role, auth_id")
+        .eq("auth_id", user.id)
+        .single();
+      
+      userData = result.data;
+      dbError = result.error;
+    } catch (queryError) {
+      console.error("Database connection error:", queryError);
+      return res
+        .status(HttpStatusCode.SERVICE_UNAVAILABLE)
+        .json(
+          new ApiError(HttpStatusCode.SERVICE_UNAVAILABLE, "Database service temporarily unavailable. Please check your internet connection and try again.")
+        );
+    }
 
+    // Check if it's a network/connection error
+    if (dbError) {
+      const errorMessage = dbError.message || '';
+      const errorDetails = dbError.details || '';
+      
+      if (errorMessage.includes('fetch failed') || 
+          errorMessage.includes('ENOTFOUND') ||
+          errorMessage.includes('ECONNREFUSED') ||
+          errorDetails.includes('ENOTFOUND') ||
+          errorDetails.includes('fetch failed') ||
+          errorDetails.includes('ECONNREFUSED')) {
+        console.error("Database connection error:", dbError);
+        return res
+          .status(HttpStatusCode.SERVICE_UNAVAILABLE)
+          .json(
+            new ApiError(HttpStatusCode.SERVICE_UNAVAILABLE, "Database service temporarily unavailable. Please check your internet connection and try again.")
+          );
+      }
+    }
+    
     if (dbError || !userData) {
       return res
         .status(HttpStatusCode.UNAUTHORIZED)
