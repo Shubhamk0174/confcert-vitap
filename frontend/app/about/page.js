@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Shield, Lock, Zap, Users, Globe, Award, ArrowRight } from 'lucide-react';
+import { Shield, Lock, Zap, Users, Globe, Award, ArrowRight, Github, Linkedin, Code2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
@@ -11,51 +11,51 @@ export default function About() {
   const features = [
     {
       icon: Shield,
-      title: 'Blockchain Security',
-      description: 'Your certificates are secured by immutable blockchain technology, ensuring they can never be altered or forged.',
+      title: 'Blockchain Anchored Records',
+      description: 'Each certificate is registered on Ethereum Sepolia with immutable metadata, creating a tamper-evident proof trail.',
     },
     {
       icon: Lock,
-      title: 'Tamper-Proof',
-      description: 'Cryptographic signatures and decentralized storage make certificate fraud impossible.',
+      title: 'Tamper-Resistant Verification',
+      description: 'Verification checks certificate state directly from blockchain records, reducing trust on any single centralized actor.',
     },
     {
       icon: Zap,
-      title: 'Instant Verification',
-      description: 'Verify any certificate in seconds, anywhere in the world, without intermediaries.',
+      title: 'Fast Certificate Workflows',
+      description: 'Issue single or bulk certificates through one interface with backend-managed blockchain transactions and delivery.',
     },
     {
       icon: Users,
-      title: 'Decentralized',
-      description: 'No single point of failure. Your certificates exist on a distributed network.',
+      title: 'Role-Based Access Control',
+      description: 'Admins, club admins, and students have dedicated workflows for secure operations and clearer responsibilities.',
     },
     {
       icon: Globe,
-      title: 'Global Access',
-      description: 'Access and verify certificates from anywhere, at any time, on any device.',
+      title: 'IPFS Certificate Availability',
+      description: 'Certificate files are stored on IPFS, and the app uses gateway fallbacks to improve retrieval reliability.',
     },
     {
       icon: Award,
-      title: 'Professional',
-      description: 'Issue certificates that meet international standards and are recognized globally.',
+      title: 'Template-Driven Issuance',
+      description: 'Use a visual template editor with placeholders, logo support, and reusable designs for consistent branding.',
     },
   ];
 
   const steps = [
     {
       number: '1',
-      title: 'Connect Wallet',
-      description: 'Connect your Web3 wallet (Ethereum or Solana) to get started',
+      title: 'Sign In By Role',
+      description: 'Admins and club admins access issuance tools; students access profile and verification features.',
     },
     {
       number: '2',
-      title: 'Create Certificate',
-      description: 'Fill in the certificate details and issue it on the blockchain',
+      title: 'Create and Issue',
+      description: 'Generate certificates from templates or uploaded files, then issue through backend-managed blockchain flow.',
     },
     {
       number: '3',
       title: 'Verify Instantly',
-      description: 'Anyone can verify the certificate authenticity in seconds',
+      description: 'Anyone can verify certificate authenticity using certificate ID and on-chain data.',
     },
   ];
 
@@ -74,8 +74,8 @@ export default function About() {
             About ConfCert
           </h1>
           <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-            We&apos;re revolutionizing digital certification by leveraging blockchain technology
-            to create secure, verifiable, and tamper-proof certificates.
+            ConfCert is a blockchain-backed certificate platform for issuing, managing,
+            and verifying digital certificates with auditability and reduced fraud risk.
           </p>
         </motion.div>
 
@@ -89,13 +89,13 @@ export default function About() {
         >
           <Card className="border-primary/20 bg-primary/5">
             <CardHeader>
-              <CardTitle className="text-2xl md:text-3xl">Our Mission</CardTitle>
+              <CardTitle className="text-2xl md:text-3xl">ConfCert Mission</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-lg text-muted-foreground leading-relaxed">
-                To provide a secure, transparent, and accessible platform for issuing and verifying
-                digital certificates using blockchain technology. We believe in empowering organizations
-                and individuals with the tools to create trust and authenticity in the digital world.
+                To provide a secure and practical certification platform that combines Web2 usability
+                with Web3 trust guarantees. ConfCert enables institutions to issue certificates on-chain
+                without forcing recipients to manage crypto wallets, while preserving public verifiability.
               </p>
             </CardContent>
           </Card>
@@ -115,7 +115,7 @@ export default function About() {
               Why Choose Us?
             </h2>
             <p className="text-lg text-muted-foreground">
-              Built with cutting-edge blockchain technology
+              Built for real institutional workflows, not just demos
             </p>
           </motion.div>
 
@@ -129,11 +129,17 @@ export default function About() {
                 transition={{ delay: index * 0.1, duration: 0.5 }}
               >
                 <Card className="h-full hover:border-primary/50 transition-colors">
-                  <CardHeader>
-                    <div className="mb-3 inline-flex p-2 rounded-lg bg-primary/10">
-                      <feature.icon className="h-6 w-6 text-primary" />
+                  <CardHeader className="pb-3">
+                    <div className="rounded-lg bg-green-100/70 dark:bg-green-900/20 p-3">
+                      <div className="flex items-center gap-3">
+                        <div className="shrink-0 inline-flex">
+                          <feature.icon className="h-6 w-6 text-green-700 dark:text-green-300" />
+                        </div>
+                        <div className="flex items-center min-h-6">
+                          <CardTitle className="text-lg">{feature.title}</CardTitle>
+                        </div>
+                      </div>
                     </div>
-                    <CardTitle className="text-lg">{feature.title}</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <p className="text-muted-foreground text-sm">
@@ -180,6 +186,61 @@ export default function About() {
           </div>
         </motion.div>
 
+        {/* About Developer */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5 }}
+          className="mb-16"
+        >
+          <Card>
+            <CardHeader>
+              <Badge variant="outline" className="w-fit">Developer</Badge>
+              <CardTitle className="text-2xl md:text-3xl mt-2">About the Developer</CardTitle>
+              <CardDescription>
+                Built and maintained by Shubham Kumar
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <div className="inline-flex p-2 rounded-lg bg-primary/10">
+                    <Code2 className="h-5 w-5 text-primary" />
+                  </div>
+                  <p className="text-muted-foreground leading-relaxed">
+                    Shubham is a Full Stack Developer and B.Tech CSE Core student at VIT-AP, focused on building modern web applications and practical blockchain-integrated products.
+                    ConfCert reflects this approach by combining user-friendly workflows with verifiable on-chain trust.
+                  </p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                  <Button asChild variant="outline" className="gap-2">
+                    <a
+                      href="https://github.com/Shubhamk0174"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <Github className="h-4 w-4" />
+                      GitHub Profile
+                    </a>
+                  </Button>
+                  <Button asChild variant="outline" className="gap-2">
+                    <a
+                      href="https://www.linkedin.com/in/shubhamkumar-profile/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <Linkedin className="h-4 w-4" />
+                      LinkedIn Profile
+                    </a>
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
         {/* CTA */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -193,10 +254,10 @@ export default function About() {
                 Ready to Get Started?
               </h2>
               <p className="text-lg text-muted-foreground mb-6">
-                Join us in revolutionizing digital certification
+                Start issuing and verifying blockchain-backed certificates today
               </p>
               <Button asChild size="lg">
-                <Link href="/">
+                <Link href="/login">
                   Start Creating Certificates
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
